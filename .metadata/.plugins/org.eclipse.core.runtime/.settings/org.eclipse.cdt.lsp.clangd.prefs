@@ -1,0 +1,4 @@
+additional_options=--compile-commands-dir\=D\:\\Espressif_IDE_Workspace\\softAP\\build
+clangd_path=C\:\\Users\\Lenovo\\.espressif\\tools\\esp-clang\\esp-18.1.2_20240912\\esp-clang\\bin\\clangd.exe
+eclipse.preferences.version=1
+query_driver=C\:\\Users\\Lenovo\\.espressif\\tools\\xtensa-esp-elf\\esp-14.2.0_20241119\\xtensa-esp-elf\\bin\\xtensa-esp32s3-elf-gcc.exe

@@ -1,0 +1,83 @@
+#include "nvs_flash.h"
+#include "esp_err.h"
+#include "esp_log.h"
+#include "esp_camera.h"
+#include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "ov2640_init.h"
+#include "softAP.h"
+
+static const char *TAG = "app";
+
+// ==== 配置区 ====
+// TODO: 把此 GPIO 改成你板上“PLAY”实体按键的实际引脚
+#ifndef PLAY_BTN_GPIO
+#define PLAY_BTN_GPIO  0   // <--- 占位：请改为实际 PLAY 键 GPIO
+#endif
+
+#ifndef SNAPSHOT_PORT
+#define SNAPSHOT_PORT  4444
+#endif
+// ==============
+
+// 简单消抖读取：检测按下（低电平）沿
+static void snapshot_button_task(void *arg)
+{
+    // 上电初始化引脚
+    gpio_config_t io = {
+        .pin_bit_mask = 1ULL << PLAY_BTN_GPIO,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&io);
+
+    int prev = gpio_get_level(PLAY_BTN_GPIO);
+    while (1) {
+        int now = gpio_get_level(PLAY_BTN_GPIO);
+        // 典型板载按键：低电平表示按下
+        if (prev == 1 && now == 0) {
+            // 消抖
+            vTaskDelay(pdMS_TO_TICKS(30));
+            if (gpio_get_level(PLAY_BTN_GPIO) == 0) {
+                ESP_LOGI(TAG, "PLAY pressed -> take snapshot & send");
+                esp_err_t r = softap_send_one_jpeg(SNAPSHOT_PORT);
+                if (r != ESP_OK) {
+                    ESP_LOGW(TAG, "snapshot send failed: 0x%x", r);
+                }
+                // 等待松开再继续
+                while (gpio_get_level(PLAY_BTN_GPIO) == 0) {
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                }
+            }
+        }
+        prev = now;
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+void app_main(void)
+{
+    // NVS
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ESP_ERROR_CHECK(nvs_flash_init());
+    }
+
+    // Wi-Fi SoftAP
+    wifi_init_softap();
+
+    // 摄像头
+    ESP_ERROR_CHECK(camera_init_ov2640());
+
+    // 注意：你说“该功能不会和录制视频同时进行”
+    // 因此这里不自动开启连续视频流（若需要时再调用 softap_tcp_stream_start(0)）
+    // softap_tcp_stream_start(0);
+
+    // 启动按键监听任务
+    xTaskCreate(snapshot_button_task, "snapshot_button_task", 3072, NULL, 5, NULL);
+}

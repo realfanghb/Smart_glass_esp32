@@ -1,0 +1,22 @@
+                            Memory Type Usage Summary                             
++--------------------------------------------------------------------------------+
+| Memory Type/Section | Used [bytes] | Used [%] | Remain [bytes] | Total [bytes] |
+|---------------------+--------------+----------+----------------+---------------|
+| Flash Code          |       608678 |          |                |               |
+|    .text            |       608678 |          |                |               |
+| DIRAM               |       124615 |    36.46 |         217145 |        341760 |
+|    .text            |        77343 |    22.63 |                |               |
+|    .data            |        29592 |     8.66 |                |               |
+|    .bss             |        17680 |     5.17 |                |               |
+| Flash Data          |       122820 |          |                |               |
+|    .rodata          |       122564 |          |                |               |
+|    .appdesc         |          256 |          |                |               |
+| IRAM                |        16383 |    99.99 |              1 |         16384 |
+|    .text            |        15356 |    93.73 |                |               |
+|    .vectors         |         1027 |     6.27 |                |               |
+| RTC FAST            |           52 |     0.63 |           8140 |          8192 |
+|    .force_fast      |           28 |     0.34 |                |               |
+|    .rtc_reserved    |           24 |     0.29 |                |               |
++--------------------------------------------------------------------------------+
+C:\Users\Lenovo\.espressif\python_env\idf5.4_py3.13_env\Scripts\python.exe D:\esp-adf\esp-idf\components\partition_table\gen_esp32part.py D:\Espressif_IDE_Workspace\softAP\build\partition_table\partition-table.bin
+Total time taken to build the project: 41,559 ms

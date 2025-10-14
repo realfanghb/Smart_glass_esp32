@@ -1,0 +1,61 @@
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
+#include "esp_err.h"
+
+/**
+ * @brief 初始化并启动 SoftAP（使用默认配置，见 softAP.c 顶部宏）。
+ *        - 会创建 Wi-Fi AP 接口
+ *        - 启动 esp_wifi
+ */
+void wifi_init_softap(void);
+
+/**
+ * @brief 启动 MJPEG TCP 推流任务（线程安全，可反复调用只会创建一个任务）。
+ * @param port TCP 监听端口；传 0 则使用默认端口（宏 SOFTAP_TCP_PORT，默认 3333）
+ */
+void softap_tcp_stream_start(uint16_t port);
+
+#ifdef __cplusplus
+}
+#endif
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
+#include "esp_err.h"
+
+/**
+ * @brief 初始化并启动 SoftAP（使用默认配置，见 softAP.c 顶部宏）。
+ *        - 会创建 Wi-Fi AP 接口
+ *        - 启动 esp_wifi
+ */
+void wifi_init_softap(void);
+
+/**
+ * @brief 启动 MJPEG TCP 推流任务（线程安全，可反复调用只会创建一个任务）。
+ * @param port TCP 监听端口；传 0 则使用默认端口（宏 SOFTAP_TCP_PORT，默认 3333）
+ */
+void softap_tcp_stream_start(uint16_t port);
+
+
+
+// softAP.h 追加声明（放在现有声明的后面即可）
+/**
+ * @brief 采一帧 JPEG，并通过一个临时 TCP 服务发送给首个连接的客户端，然后立即断开。
+ *        发送协议仍是：[4字节大端帧长][JPEG数据]
+ * @param port 监听端口；传 0 使用默认 4444
+ * @return ESP_OK 成功；其它为错误码
+ */
+esp_err_t softap_send_one_jpeg(uint16_t port);
+
+#ifdef __cplusplus
+}
+#endif

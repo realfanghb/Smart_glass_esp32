@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="LaunchTerminalSettingsDialog">
+		<item key="terminalLabel" value="ESP-IDF Serial Monitor"/>
+		<section name="SettingsPanelControl">
+			<section name="ESP-IDF Serial Monitor">
+				<list key="hosts">
+				</list>
+			</section>
+		</section>
+	</section>
+</section>

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename resource &apos;softAP/main/vedio_test.c&apos; to &apos;video_test.c&apos;" description="Rename resource &apos;vedio_test.c&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="main/vedio_test.c" name="video_test.c" stamp="1760114037764" updateReferences="true"/>
+</session>

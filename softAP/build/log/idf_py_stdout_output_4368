@@ -1,0 +1,72 @@
+[1/5] C:\WINDOWS\system32\cmd.exe /C "cd /D D:\Espressif_IDE_Workspace\softAP\build\esp-idf\esptool_py && C:\Users\Lenovo\.espressif\python_env\idf5.4_py3.13_env\Scripts\python.exe D:/esp-adf/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app D:/Espressif_IDE_Workspace/softAP/build/partition_table/partition-table.bin D:/Espressif_IDE_Workspace/softAP/build/vedio_test.bin"
+vedio_test.bin binary size 0xcef00 bytes. Smallest app partition is 0x100000 bytes. 0x31100 bytes (19%) free.
+[2/5] Performing build step for 'bootloader'
+[1/1] C:\WINDOWS\system32\cmd.exe /C "cd /D D:\Espressif_IDE_Workspace\softAP\build\bootloader\esp-idf\esptool_py && C:\Users\Lenovo\.espressif\python_env\idf5.4_py3.13_env\Scripts\python.exe D:/esp-adf/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 D:/Espressif_IDE_Workspace/softAP/build/bootloader/bootloader.bin"
+Bootloader binary size 0x5210 bytes. 0x2df0 bytes (36%) free.
+[3/5] No install step for 'bootloader'
+[4/5] Completed 'bootloader'
+[4/5] C:\WINDOWS\system32\cmd.exe /C "cd /D D:\esp-adf\esp-idf\components\esptool_py && C:\Users\Lenovo\.espressif\tools\cmake\3.30.2\bin\cmake.exe -D IDF_PATH=D:/esp-adf/esp-idf -D SERIAL_TOOL=C:/Users/Lenovo/.espressif/python_env/idf5.4_py3.13_env/Scripts/python.exe;;D:/esp-adf/esp-idf/components/esptool_py/esptool/esptool.py;--chip;esp32s3 -D SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args -D WORKING_DIRECTORY=D:/Espressif_IDE_Workspace/softAP/build -P D:/esp-adf/esp-idf/components/esptool_py/run_serial_tool.cmake"
+esptool.py --chip esp32s3 -p COM12 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 2MB 0x0 bootloader/bootloader.bin 0x10000 vedio_test.bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.10.0
+Serial port COM12
+Connecting....
+Chip is ESP32-S3 (QFN56) (revision v0.2)
+Features: WiFi, BLE, Embedded PSRAM 8MB (AP_3v3)
+Crystal is 40MHz
+MAC: 98:a3:16:de:b3:0c
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 460800
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00000000 to 0x00005fff...
+Flash will be erased from 0x00010000 to 0x000defff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+SHA digest in image updated
+Compressed 21008 bytes to 13379...
+Writing at 0x00000000... (100 %)
+Wrote 21008 bytes (13379 compressed) at 0x00000000 in 0.6 seconds (effective 289.8 kbit/s)...
+Hash of data verified.
+Compressed 847616 bytes to 523789...
+Writing at 0x00010000... (3 %)
+Writing at 0x0001c93b... (6 %)
+Writing at 0x000260d5... (9 %)
+Writing at 0x000304ec... (12 %)
+Writing at 0x000364e5... (15 %)
+Writing at 0x0003cd72... (18 %)
+Writing at 0x0004417b... (21 %)
+Writing at 0x0004b138... (25 %)
+Writing at 0x0005143f... (28 %)
+Writing at 0x00056cc3... (31 %)
+Writing at 0x0005ca40... (34 %)
+Writing at 0x00062813... (37 %)
+Writing at 0x000683d0... (40 %)
+Writing at 0x0006e2ec... (43 %)
+Writing at 0x0007430a... (46 %)
+Writing at 0x00079212... (50 %)
+Writing at 0x0007e1b7... (53 %)
+Writing at 0x00083535... (56 %)
+Writing at 0x000889c2... (59 %)
+Writing at 0x0008daee... (62 %)
+Writing at 0x00092d9a... (65 %)
+Writing at 0x00098ac5... (68 %)
+Writing at 0x0009e437... (71 %)
+Writing at 0x000a41c5... (75 %)
+Writing at 0x000a9dbe... (78 %)
+Writing at 0x000af14a... (81 %)
+Writing at 0x000b8de7... (84 %)
+Writing at 0x000bfd70... (87 %)
+Writing at 0x000c69bd... (90 %)
+Writing at 0x000cd5a4... (93 %)
+Writing at 0x000d35d6... (96 %)
+Writing at 0x000d982a... (100 %)
+Wrote 847616 bytes (523789 compressed) at 0x00010000 in 12.2 seconds (effective 555.5 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 103...
+Writing at 0x00008000... (100 %)
+Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.1 seconds (effective 455.8 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...

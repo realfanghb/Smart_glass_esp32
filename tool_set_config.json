@@ -1,0 +1,22 @@
+[
+  {
+    "id": 339921526,
+    "idfLocation": "D:\\esp-adf\\esp-idf",
+    "idfVersion": "5.4.0",
+    "active": true,
+    "systemGitExecutablePath": "C:\\Program Files\\Git\\cmd\\git.EXE",
+    "systemPythonExecutablePath": "C:\\Users\\Lenovo\\AppData\\Local\\Microsoft\\WindowsApps\\python3.EXE",
+    "envVars": {
+      "PATH": "C:\\Users\\Lenovo\\.espressif\\tools\\xtensa-esp-elf-gdb\\14.2_20240403\\xtensa-esp-elf-gdb\\bin;C:\\Users\\Lenovo\\.espressif\\tools\\riscv32-esp-elf-gdb\\14.2_20240403\\riscv32-esp-elf-gdb\\bin;C:\\Users\\Lenovo\\.espressif\\tools\\xtensa-esp-elf\\esp-14.2.0_20241119\\xtensa-esp-elf\\bin;C:\\Users\\Lenovo\\.espressif\\tools\\esp-clang\\esp-18.1.2_20240912\\esp-clang\\bin;C:\\Users\\Lenovo\\.espressif\\tools\\riscv32-esp-elf\\esp-14.2.0_20241119\\riscv32-esp-elf\\bin;C:\\Users\\Lenovo\\.espressif\\tools\\esp32ulp-elf\\2.38_20240113\\esp32ulp-elf\\bin;C:\\Users\\Lenovo\\.espressif\\tools\\cmake\\3.30.2\\bin;C:\\Users\\Lenovo\\.espressif\\tools\\openocd-esp32\\v0.12.0-esp32-20241016\\openocd-esp32\\bin;C:\\Users\\Lenovo\\.espressif\\tools\\ninja\\1.12.1\\;C:\\Users\\Lenovo\\.espressif\\tools\\idf-exe\\1.0.3\\;C:\\Users\\Lenovo\\.espressif\\tools\\ccache\\4.10.2\\ccache-4.10.2-windows-x86_64;C:\\Users\\Lenovo\\.espressif\\tools\\dfu-util\\0.11\\dfu-util-0.11-win64;C:\\Users\\Lenovo\\.espressif\\tools\\qemu-xtensa\\esp_develop_9.0.0_20240606\\qemu\\bin;C:\\Users\\Lenovo\\.espressif\\tools\\qemu-riscv32\\esp_develop_9.0.0_20240606\\qemu\\bin;C:\\Users\\Lenovo\\.espressif\\python_env\\idf5.4_py3.13_env\\Scripts;D:\\esp-adf\\esp-idf\\tools;%PATH%",
+      "IDF_COMPONENT_MANAGER": "1",
+      "OPENOCD_SCRIPTS": "C:\\Users\\Lenovo\\.espressif\\tools\\openocd-esp32\\v0.12.0-esp32-20241016\\openocd-esp32\\share\\openocd\\scripts",
+      "IDF_DEACTIVATE_FILE_PATH": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\tmpupgfj2cpidf_10844",
+      "IDF_MAINTAINER": "1",
+      "IDF_CCACHE_ENABLE": "1",
+      "IDF_PATH": "D:\\esp-adf\\esp-idf",
+      "IDF_PYTHON_ENV_PATH": "C:\\Users\\Lenovo\\.espressif\\python_env\\idf5.4_py3.13_env",
+      "ESP_IDF_VERSION": "5.4.0",
+      "ESP_ROM_ELF_DIR": "C:\\Users\\Lenovo\\.espressif\\tools\\esp-rom-elfs\\20241011\\"
+    }
+  }
+]

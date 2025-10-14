@@ -1,0 +1,76 @@
+// ============================================================================
+// File: keypad_snapshot.h
+// Purpose: 封装 Korvo-2 (ESP32-S3) 的“ADC 键盘(GPIO5)检测 + PLAY 触发单次快照发送”
+// Author: you & ChatGPT
+// ============================================================================
+#pragma once
+#include <stdbool.h>
+#include <stdint.h>
+#include "esp_err.h"
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+// =================== 配置区（可在编译器全局宏里覆盖） ===================
+// Korvo-2 V3.1.x 的 6 键经电阻分压汇到 GPIO5（ADC）。若你真机不同批次，请按实测修改。
+#ifndef KORVO_KEYS_GPIO
+#define KORVO_KEYS_GPIO (GPIO_NUM_5)
+#endif
+
+
+// 快照发送的 TCP 端口（沿用现有协议：[4字节大端长度]+[JPEG]）
+#ifndef SNAPSHOT_TCP_PORT
+#define SNAPSHOT_TCP_PORT (4444)
+#endif
+
+
+// 采样/消抖/触发参数
+#ifndef ADC_SAMPLE_TIMES
+#define ADC_SAMPLE_TIMES (16) // 每次平均的采样次数
+#endif
+#ifndef ADC_DEBOUNCE_MS
+#define ADC_DEBOUNCE_MS (30) // 进入窗口后的消抖时间
+#endif
+#ifndef ADC_PRESS_HOLD_MS
+#define ADC_PRESS_HOLD_MS (150) // 认定“按下”需要持续时间
+#endif
+#ifndef ADC_POLL_MS
+#define ADC_POLL_MS (10) // 轮询周期
+#endif
+#ifndef ADC_PRINT_INTERVAL_MS
+#define ADC_PRINT_INTERVAL_MS (250) // 打印原始值频率（用于校准）
+#endif
+
+
+// ★★ 按你板子的实测原始值微调 PLAY 的窗口（12-bit 原始值 0~4095，11dB 衰减）
+#ifndef PLAY_MIN_RAW
+#define PLAY_MIN_RAW (900)
+#endif
+#ifndef PLAY_MAX_RAW
+#define PLAY_MAX_RAW (2200)
+#endif
+
+
+// =================== 对外 API ===================
+
+
+// 启动后台任务：检测“PLAY”键并在按下时调用 softap_send_one_jpeg(SNAPSHOT_TCP_PORT)
+// 依赖：你已经初始化了 Wi-Fi SoftAP 与 Camera。
+// 返回 ESP_OK 表示任务已创建。
+esp_err_t keypad_snapshot_start(void);
+
+
+// 停止并删除后台任务（可选）。
+void keypad_snapshot_stop(void);
+
+
+// 临时打印一次当前 ADC 原始值（帮助你校准阈值）
+esp_err_t keypad_snapshot_probe_once(int *out_raw);
+
+
+#ifdef __cplusplus
+}
+#endif

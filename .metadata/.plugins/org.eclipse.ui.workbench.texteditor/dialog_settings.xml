@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item key="hasShownOverlayPopupBefore" value="true"/>
+	<section name="java.lang.Class">
+		<item key="replaceBarOpen" value="false"/>
+		<list key="findhistory">
+			<item value="listen_sock"/>
+			<item value="SNAPSHOT_PORT"/>
+			<item value="192.168.4.1"/>
+			<item value="193."/>
+			<item value="EXAMPLE_ESP_WIFI_CHANNEL "/>
+			<item value="esp_wifi_set_bandwidth"/>
+			<item value="TAG"/>
+			<item value="FRAMESIZE_SVGA"/>
+			<item value="pvParameters"/>
+		</list>
+	</section>
+</section>

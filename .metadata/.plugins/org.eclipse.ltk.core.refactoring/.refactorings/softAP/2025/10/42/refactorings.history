@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">&#x0A;<refactoring comment="Rename resource &apos;softAP/main/softAP&apos; to &apos;softAP.h&apos;" description="Rename resource &apos;softAP&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="main/softAP" name="softAP.h" stamp="1760408486770" updateReferences="true"/>&#x0A;<refactoring comment="Rename resource &apos;softAP/main/video_test.c&apos; to &apos;main.c&apos;" description="Rename resource &apos;video_test.c&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="main/video_test.c" name="main.c" stamp="1760408552992" updateReferences="true"/>
+</session>
