@@ -17,6 +17,7 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_camera.h"
 
 #include "softAP.h"
 #include "audio_play.h"
@@ -34,11 +35,11 @@
 #ifndef MAX_STA_CONN
 #define MAX_STA_CONN    2
 #endif
-#ifndef SOFTAP_TCP_PORT
-#define SOFTAP_TCP_PORT 3333
+#ifndef VIDEO_PORT
+#define VIDEO_PORT 3333
 #endif
-#ifndef AUDIO_PORT
-#define AUDIO_PORT      5000   // MP3 接收端口（保持不变）
+#ifndef REVERSE_AUDIO_PORT
+#define REVERSE_AUDIO_PORT      5000   // MP3 接收端口（保持不变）
 #endif
 
 #ifndef MAX_INMEM_BYTES
@@ -48,7 +49,13 @@
 #ifndef RECV_CHUNK
 #define RECV_CHUNK (4 * 1024)
 #endif
+
 static const char *TAG = "softap";
+
+static TaskHandle_t g_tcp_task_handle = NULL;
+
+static audio_player_t s_player;
+static TaskHandle_t s_mp3_task = NULL;
 
 // ==================== SoftAP 实现 ====================
 void wifi_init_softap(void)
@@ -83,12 +90,7 @@ void wifi_init_softap(void)
              WIFI_SSID, WIFI_PASS, WIFI_CHANNEL);
 }
 
-// ====================（可选）MJPEG 推流：如不需要可删除整个段落 ====================
-#include "esp_camera.h"
-
-static int g_listen_port = SOFTAP_TCP_PORT;
-static TaskHandle_t g_tcp_task_handle = NULL;
-
+// ==================== MJPEG 推流 ====================
 static void stream_one_client(int sock)
 {
     // 协议：[4字节大端帧长][JPEG数据] 循环发送
@@ -134,7 +136,7 @@ static void stream_one_client(int sock)
     }
 }
 
-static void tcp_stream_task(void *arg)
+static void video_transmitting(void *arg)
 {
     int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (listen_sock < 0) { vTaskDelete(NULL); return; }
@@ -143,12 +145,12 @@ static void tcp_stream_task(void *arg)
 
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
-        .sin_port = htons(g_listen_port),
+        .sin_port = htons(VIDEO_PORT),
         .sin_addr.s_addr = htonl(INADDR_ANY),
     };
     if (bind(listen_sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) { close(listen_sock); vTaskDelete(NULL); return; }
     if (listen(listen_sock, 1) < 0) { close(listen_sock); vTaskDelete(NULL); return; }
-    ESP_LOGI(TAG, "MJPEG listening on 0.0.0.0:%d", g_listen_port);
+    ESP_LOGI(TAG, "MJPEG listening on 0.0.0.0:%d", VIDEO_PORT);
 
     while (1) {
         struct sockaddr_in cli; socklen_t slen = sizeof(cli);
@@ -162,20 +164,19 @@ static void tcp_stream_task(void *arg)
     }
 }
 
-void softap_tcp_stream_start(uint16_t port)
+void softap_video_start(uint16_t port)
 {
-    if (port != 0) g_listen_port = port;
+    (void) port;
     if (g_tcp_task_handle) {
-        ESP_LOGI(TAG, "tcp stream task already running on port %d", g_listen_port);
+        ESP_LOGI(TAG, "tcp stream task already running on port %d", VIDEO_PORT);
         return;
     }
-    xTaskCreate(tcp_stream_task, "tcp_stream_task", 8192, NULL, 5, &g_tcp_task_handle);
+    xTaskCreate(video_transmitting, "video_transmitting", 8192, NULL, 5, &g_tcp_task_handle);
 }
 
 
 
-// ==================== 仅方案A：接收到内存并直接播放 ====================
-static audio_player_t s_player;
+// ==================== Reverse_Audio_Transmission ====================
 
 esp_err_t softap_audio_player_init(void)
 {
@@ -187,7 +188,6 @@ esp_err_t softap_audio_player_init(void)
     return ESP_FAIL;
 }
 
-static TaskHandle_t s_mp3_task = NULL;
 
 static inline bool looks_like_mp3(const uint8_t *buf, size_t n)
 {
@@ -196,7 +196,7 @@ static inline bool looks_like_mp3(const uint8_t *buf, size_t n)
     return false;
 }
 
-static void tcp_server_task(void *arg)
+static void reverse_audio_transmitting(void *arg)
 {
     // 监听
     int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
@@ -205,7 +205,7 @@ static void tcp_server_task(void *arg)
 
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
-        .sin_port   = htons(AUDIO_PORT),
+        .sin_port   = htons(REVERSE_AUDIO_PORT),
         .sin_addr.s_addr = htonl(INADDR_ANY),
     };
     if (bind(listen_sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
@@ -214,7 +214,7 @@ static void tcp_server_task(void *arg)
     if (listen(listen_sock, 1) < 0) {
         ESP_LOGE(TAG, "listen failed"); close(listen_sock); vTaskDelete(NULL); return;
     }
-    ESP_LOGI(TAG, "MP3 mem-play server listening on 0.0.0.0:%d", AUDIO_PORT);
+    ESP_LOGI(TAG, "MP3 mem-play server listening on 0.0.0.0:%d", REVERSE_AUDIO_PORT);
 
     // 接收缓冲（小块）
     uint8_t *chunk = (uint8_t*)heap_caps_malloc(RECV_CHUNK, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
@@ -291,12 +291,12 @@ static void tcp_server_task(void *arg)
     vTaskDelete(NULL);
 }
 
-void softap_audio_server_start(uint16_t port)
+void softap_reverse_audio_start(uint16_t port)
 {
     (void)port; // 端口仍用 AUDIO_PORT 宏，保持兼容
     if (s_mp3_task) {
-        ESP_LOGI(TAG, "MP3 server already running on port %d", AUDIO_PORT);
+        ESP_LOGI(TAG, "MP3 server already running on port %d", REVERSE_AUDIO_PORT);
         return;
     }
-    xTaskCreate(tcp_server_task, "mp3_server_task", 4096, NULL, 5, &s_mp3_task);
+    xTaskCreate(reverse_audio_transmitting, "mp3_server_task", 4096, NULL, 5, &s_mp3_task);
 }
