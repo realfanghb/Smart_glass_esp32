@@ -38,6 +38,11 @@
 			<item value="org.eclipse.cdt.ui.newCWizards"/>
 		</list>
 		<section name="NewWizard.dialogBounds">
+			<item key="DIALOG_X_ORIGIN" value="0"/>
+			<item key="DIALOG_Y_ORIGIN" value="0"/>
+			<item key="DIALOG_WIDTH" value="788"/>
+			<item key="DIALOG_HEIGHT" value="553"/>
+			<item key="DIALOG_FONT_NAME" value="1|Microsoft YaHei UI|9.0|0|WINDOWS|1|-18|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft YaHei UI"/>
 		</section>
 	</section>
 	<section name="CleanDialogSettings">
@@ -61,6 +66,11 @@
 		<item key="SmartImportRootWizardPage.STORE_CLOSE_IMPORTED" value="false"/>
 		<item key="SmartImportRootWizardPage.STORE_NESTED_PROJECTS" value="true"/>
 		<item key="SmartImportRootWizardPage.STORE_CONFIGURE_NATURES" value="true"/>
+		<list key="org.eclipse.ui.internal.wizards.datatransfer.SmartImportRootWizardPage.knownSources">
+			<item value="D:\esp-adf\examples\player\pipeline_living_stream"/>
+			<item value="D:\esp-adf-release-v2.x\examples\get-started\play_mp3_control"/>
+			<item value="D:\esp-adf\examples\get-started\play_mp3_control"/>
+		</list>
 		<section name="SmartImportWizard.dialogBounds">
 			<item key="DIALOG_X_ORIGIN" value="782"/>
 			<item key="DIALOG_Y_ORIGIN" value="232"/>

@@ -3,8 +3,8 @@
 	<section name="org.eclipse.debug.ui.LAUNCH_CONFIGURATIONS_DIALOG_SECTION">
 		<item key="org.eclipse.debug.ui.DIALOG_SASH_WEIGHTS_1" value="237"/>
 		<item key="org.eclipse.debug.ui.DIALOG_SASH_WEIGHTS_2" value="762"/>
-		<item key="org.eclipse.debug.ui.EXPANDED_NODES" value=", org.eclipse.cdt.launch.applicationLaunchType, com.espressif.idf.launch.serial.launchConfigurationType, "/>
-		<item key="DIALOG_WIDTH" value="1767"/>
+		<item key="org.eclipse.debug.ui.EXPANDED_NODES" value=", com.espressif.idf.launch.serial.launchConfigurationType, com.espressif.idf.debug.gdbjtag.openocd.launchConfigurationType, "/>
+		<item key="DIALOG_WIDTH" value="1841"/>
 		<item key="DIALOG_HEIGHT" value="1040"/>
 		<item key="DIALOG_FONT_NAME" value="1|Microsoft YaHei UI|9.0|0|WINDOWS|1|-18|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft YaHei UI"/>
 	</section>
