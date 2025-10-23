@@ -26,9 +26,11 @@ void app_main(void)
 	
 	// video
 	ESP_ERROR_CHECK(camera_init_ov2640());
-	softap_video_start(1);
+	softap_video_start(2000);
 	
 	//reverse_audio
 	ESP_ERROR_CHECK(softap_audio_player_init());
-	softap_reverse_audio_start(2);
+	softap_reverse_audio_start(3000);
+
+	softap_feedback_start(4000);
 }

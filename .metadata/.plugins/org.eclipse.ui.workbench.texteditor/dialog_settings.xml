@@ -2,7 +2,7 @@
 <section name="Workbench">
 	<item key="hasShownOverlayPopupBefore" value="true"/>
 	<section name="java.lang.Class">
-		<item key="replaceBarOpen" value="false"/>
+		<item key="replaceBarOpen" value="true"/>
 		<item key="selection" value=""/>
 		<item key="wrap" value="true"/>
 		<item key="casesensitive" value="false"/>
@@ -10,23 +10,32 @@
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
+			<item value="invalid"/>
+			<item value="control_server_task"/>
+			<item value="s_ctrl_task"/>
+			<item value="g_tcp_task_handle"/>
+			<item value="reverse_audio_transmitting"/>
+			<item value="tcp_stream_task"/>
+			<item value="tcp_server_task"/>
+			<item value="s_mp3_task"/>
+			<item value="SOFTAP_TCP_PORT"/>
+			<item value="softap_audio_server_start"/>
+			<item value="softap_tcp_stream_start"/>
+			<item value="AUDIO_ELEMENT"/>
 			<item value="recv chunk"/>
 			<item value="i2s_driver_init"/>
 			<item value="I2S_DI_IO"/>
-			<item value="audio"/>
-			<item value="18"/>
-			<item value="i2s_std_gpio_config_t "/>
-			<item value="i2s_std_clk_config_t"/>
-			<item value="ESP_LOGI"/>
-			<item value="LOG_COLOR"/>
-			<item value="define"/>
-			<item value="i2s_channel_init_std_mode"/>
-			<item value="tcp_server"/>
-			<item value="elf"/>
-			<item value="listen_sock"/>
-			<item value="SNAPSHOT_PORT"/>
 		</list>
 		<list key="replacehistory">
+			<item value="vibration_feedback"/>
+			<item value="s_vibration_task"/>
+			<item value="s_video_task"/>
+			<item value="reverse_audio"/>
+			<item value="reverse_audio_transmitting"/>
+			<item value="VIDEO_PORT"/>
+			<item value="softap_reverse_audio_start"/>
+			<item value="softap_video_start"/>
+			<item value="video_transmitting"/>
 		</list>
 	</section>
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">

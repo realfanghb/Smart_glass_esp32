@@ -18,6 +18,8 @@ void softap_reverse_audio_start(uint16_t port);
 // 4) 初始化音频播放器（使用 audio_play.c / ES8311 + ADF 管线）
 esp_err_t softap_audio_player_init(void);
 
+void softap_feedback_start(uint16_t port);
+
 #ifdef __cplusplus
 }
 #endif

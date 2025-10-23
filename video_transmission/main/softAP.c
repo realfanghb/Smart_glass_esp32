@@ -36,10 +36,11 @@
 #define MAX_STA_CONN    2
 #endif
 #ifndef VIDEO_PORT
-#define VIDEO_PORT 3333
+#define VIDEO_PORT 2000  // Video 传输端口
 #endif
+
 #ifndef REVERSE_AUDIO_PORT
-#define REVERSE_AUDIO_PORT      5000   // MP3 接收端口（保持不变）
+#define REVERSE_AUDIO_PORT      3000   // MP3 接收端口
 #endif
 
 #ifndef MAX_INMEM_BYTES
@@ -50,12 +51,22 @@
 #define RECV_CHUNK (4 * 1024)
 #endif
 
+#ifndef CONTROL_PORT
+#define CONTROL_PORT 4000   // Vibration feedback 接收端口
+#endif
+
+#ifndef CONTROL_RX_BUFSZ
+#define CONTROL_RX_BUFSZ 64 // 小缓冲即可
+#endif
+
+
 static const char *TAG = "softap";
 
-static TaskHandle_t g_tcp_task_handle = NULL;
-
 static audio_player_t s_player;
+
+static TaskHandle_t s_video_task = NULL;
 static TaskHandle_t s_mp3_task = NULL;
+static TaskHandle_t s_vibration_task = NULL;
 
 // ==================== SoftAP 实现 ====================
 void wifi_init_softap(void)
@@ -93,7 +104,6 @@ void wifi_init_softap(void)
 // ==================== MJPEG 推流 ====================
 static void stream_one_client(int sock)
 {
-    // 协议：[4字节大端帧长][JPEG数据] 循环发送
     const int send_timeout_ms = 3000;
     struct timeval tv = { .tv_sec = send_timeout_ms/1000, .tv_usec = (send_timeout_ms%1000)*1000 };
     setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
@@ -167,16 +177,16 @@ static void video_transmitting(void *arg)
 void softap_video_start(uint16_t port)
 {
     (void) port;
-    if (g_tcp_task_handle) {
+    if (s_video_task) {
         ESP_LOGI(TAG, "tcp stream task already running on port %d", VIDEO_PORT);
         return;
     }
-    xTaskCreate(video_transmitting, "video_transmitting", 8192, NULL, 5, &g_tcp_task_handle);
+    xTaskCreate(video_transmitting, "video_transmitting", 8192, NULL, 5, &s_video_task);
 }
 
 
 
-// ==================== Reverse_Audio_Transmission ====================
+// ==================== Reverse_Audio ====================
 
 esp_err_t softap_audio_player_init(void)
 {
@@ -196,7 +206,7 @@ static inline bool looks_like_mp3(const uint8_t *buf, size_t n)
     return false;
 }
 
-static void reverse_audio_transmitting(void *arg)
+static void reverse_audio(void *arg)
 {
     // 监听
     int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
@@ -298,5 +308,116 @@ void softap_reverse_audio_start(uint16_t port)
         ESP_LOGI(TAG, "MP3 server already running on port %d", REVERSE_AUDIO_PORT);
         return;
     }
-    xTaskCreate(reverse_audio_transmitting, "mp3_server_task", 4096, NULL, 5, &s_mp3_task);
+    xTaskCreate(reverse_audio, "mp3_server_task", 4096, NULL, 5, &s_mp3_task);
 }
+
+
+// ==================== Vibration_Feedback ====================
+
+static bool parse_six_chars_to_lr(const uint8_t six[6], uint16_t *L, uint16_t *R)
+{
+    // 只能是 '0'..'9'
+    for (int i = 0; i < 6; ++i) {
+        if (six[i] < '0' || six[i] > '9') return false;
+    }
+    int l = (six[0]-'0')*100 + (six[1]-'0')*10 + (six[2]-'0');
+    int r = (six[3]-'0')*100 + (six[4]-'0')*10 + (six[5]-'0');
+    if (l < 0 || l > 100 || r < 0 || r > 100) return false;
+    *L = (uint16_t)l;
+    *R = (uint16_t)r;
+    return true;
+}
+
+static void vibration_feedback(void *arg)
+{
+    int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (listen_sock < 0) { ESP_LOGE(TAG, "ctrl socket() failed"); vTaskDelete(NULL); return; }
+
+    int yes = 1;
+    setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port   = htons(CONTROL_PORT),
+        .sin_addr.s_addr = htonl(INADDR_ANY),
+    };
+    if (bind(listen_sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        ESP_LOGE(TAG, "ctrl bind failed");
+        close(listen_sock);
+        vTaskDelete(NULL);
+        return;
+    }
+    if (listen(listen_sock, 1) < 0) {
+        ESP_LOGE(TAG, "ctrl listen failed");
+        close(listen_sock);
+        vTaskDelete(NULL);
+        return;
+    }
+    ESP_LOGI(TAG, "Control server listening on 0.0.0.0:%d", CONTROL_PORT);
+
+    uint8_t rxbuf[CONTROL_RX_BUFSZ];
+    uint8_t window[6];
+    size_t  have = 0;
+
+    for (;;)
+    {
+        struct sockaddr_in cli; socklen_t sl = sizeof(cli);
+        int sock = accept(listen_sock, (struct sockaddr*)&cli, &sl);
+        if (sock < 0) continue;
+
+        char ip[16]; inet_ntoa_r(cli.sin_addr, ip, sizeof(ip));
+        ESP_LOGI(TAG, "CTRL client %s:%d connected", ip, ntohs(cli.sin_port));
+
+        // 清空窗口
+        have = 0;
+
+        // 可选：设置接收超时
+        struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+        bool ok = true;
+        while (ok) {
+            int n = recv(sock, (char*)rxbuf, sizeof(rxbuf), 0);
+            if (n == 0) break;           // 正常断开
+            if (n < 0) { ok = false; break; }
+
+            // 把收到的数据流入一个 6 字节窗口，按 6 的步长解析
+            size_t off = 0;
+            while (off < (size_t)n) {
+                // 填满窗口
+                while (have < 6 && off < (size_t)n) {
+                    window[have++] = rxbuf[off++];
+                }
+                if (have == 6) {
+                    uint16_t L, R;
+                    if (parse_six_chars_to_lr(window, &L, &R)) {
+						ESP_LOGI(TAG, "Speeds received: L=%u, R=%u", (unsigned)L, (unsigned)R);                    
+					} 
+					else {
+                        ESP_LOGW(TAG, "invalid 6-char packet: '%c%c%c%c%c%c'",
+                                 window[0], window[1], window[2], window[3], window[4], window[5]);
+                    }
+                    have = 0; // 准备下一帧
+                }
+            }
+        }
+
+        shutdown(sock, SHUT_RDWR);
+        close(sock);
+        ESP_LOGI(TAG, "CTRL client disconnected");
+    }
+
+    close(listen_sock);
+    vTaskDelete(NULL);
+}
+
+void softap_feedback_start(uint16_t port_unused)
+{
+    (void)port_unused;
+    if (s_vibration_task) {
+        ESP_LOGI(TAG, "Control server already running on %d", CONTROL_PORT);
+        return;
+    }
+    xTaskCreate(vibration_feedback, "vibration_feedback", 4096, NULL, 5, &s_vibration_task);
+}
+
