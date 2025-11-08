@@ -3,11 +3,19 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(EXTRA_COMPONENT_DIRS
-        "D:/esp-adf/components"
-        "D:/esp-adf/components/esp-adf-libs"
+        "/Users/jackli/Documents/EspressifIDE/473Proj/esp-adf/components"
+        "/Users/jackli/Documents/EspressifIDE/473Proj/esp-adf/components/esp-adf-libs"
 )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
+add_compile_definitions(
+  portTICK_RATE_MS=portTICK_PERIOD_MS
+  xSemaphoreHandle=SemaphoreHandle_t
+  xQueueHandle=QueueHandle_t
+  xTaskHandle=TaskHandle_t
+  xTimerHandle=TimerHandle_t
+  portTickType=TickType_t
+)
 
 project(video_transmission)

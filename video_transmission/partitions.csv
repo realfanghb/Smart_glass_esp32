@@ -1,0 +1,5 @@
+nvs,      data, nvs,     ,       64K
+phy_init, data, phy,     ,       4K
+factory,  app,  factory, ,       6M
+model,    data, spiffs,  ,       8M
+storage,  data, spiffs,  ,       512K

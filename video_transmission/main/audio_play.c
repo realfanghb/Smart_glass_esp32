@@ -57,7 +57,7 @@ static void pump_music_info_and_update_clk(audio_player_t *player)
             audio_element_getinfo(player->mp3_decoder, &mi);
             ESP_LOGI(TAG, "music info: %d Hz, %d bits, %d ch",
                      mi.sample_rates, mi.bits, mi.channels);
-            i2s_stream_set_clk(player->i2s_writer, mi.sample_rates, mi.bits, mi.channels);
+            i2s_stream_set_clk(player->i2s_writer, 16000, mi.bits, mi.channels);
         }
     }
 }
