@@ -420,4 +420,3 @@ void softap_feedback_start(uint16_t port_unused)
     }
     xTaskCreate(vibration_feedback, "vibration_feedback", 4096, NULL, 5, &s_vibration_task);
 }
-

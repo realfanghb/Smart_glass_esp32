@@ -1,14 +1,10 @@
-// wakenet.c — Minimal WakeNet-only feed for ESP-ADF (IDF v5.x)
+// wakenet.c — WakeNet + 10s recording + TCP send (no changes to softAP.c)
 // Pipeline: I2S (16 kHz, 16-bit, ONLY_LEFT) -> RAW
 // Recorder SR (AFE + WakeNet) pulls from RAW and logs on wakeword.
-//
-// Kconfig (ESP-SR):
-//   [*] Enable AFE SR
-//   [*] Enable WakeNet (WWE)
-//   Language: English (pick model)
-// PSRAM recommended.
 
 #include <string.h>
+#include <stdlib.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_err.h"
@@ -24,6 +20,10 @@
 #include "audio_hal.h"
 #include "board.h"
 
+#include "lwip/sockets.h"
+#include "lwip/inet.h"
+#include "lwip/netdb.h"
+
 #include "wakenet.h"
 
 #define SR_RATE_HZ                 16000
@@ -32,6 +32,14 @@
 #define CODEC_ADC_I2S_PORT         0
 #endif
 
+// ---- 10s recording config ----
+#define RECORD_SECONDS             10
+#define BYTES_PER_SECOND           (SR_RATE_HZ * 2)   // 16-bit mono = 2 bytes/sample
+#define RECORD_BYTES               (RECORD_SECONDS * BYTES_PER_SECOND)
+
+// TCP port for sending recording (ESP acts as server)
+#define RECORDING_PORT             5000
+
 static const char *TAG = "wakenet_min";
 
 // Handles
@@ -39,6 +47,11 @@ static audio_pipeline_handle_t   s_pipeline   = NULL;
 static audio_element_handle_t    s_i2s_reader = NULL;
 static audio_element_handle_t    s_raw        = NULL;
 static audio_rec_handle_t        s_recorder   = NULL;
+
+// Buffer + state for 10s recording
+static uint8_t *s_record_buf   = NULL;
+static size_t   s_record_len   = 0;
+static bool     s_is_recording = false;
 
 /* -------------------- ADF pipeline: I2S -> RAW -------------------- */
 static esp_err_t build_capture_pipeline(void)
@@ -49,7 +62,9 @@ static esp_err_t build_capture_pipeline(void)
         return ESP_FAIL;
     }
     // Start codec (mic path enabled by board BSP)
-    audio_hal_ctrl_codec(board->audio_hal, AUDIO_HAL_CODEC_MODE_BOTH, AUDIO_HAL_CTRL_START);
+    audio_hal_ctrl_codec(board->audio_hal,
+                         AUDIO_HAL_CODEC_MODE_BOTH,
+                         AUDIO_HAL_CTRL_START);
 
     // --- I2S reader @ 16k, 16-bit, LEFT-only ---
     i2s_stream_cfg_t i2s_cfg =
@@ -111,7 +126,9 @@ static esp_err_t build_capture_pipeline(void)
 /* -------------------- Recorder SR glue: RAW -> AFE/WakeNet -------------------- */
 static int input_cb_for_afe(int16_t *buffer, int buf_sz, void *user_ctx, TickType_t ticks)
 {
-    (void)user_ctx; (void)ticks;
+    (void)user_ctx;
+    (void)ticks;
+
     // Blocks until data available; returns bytes read (<= buf_sz)
     int r = raw_stream_read(s_raw, (char *)buffer, buf_sz);
     if (r <= 0) {
@@ -120,24 +137,185 @@ static int input_cb_for_afe(int16_t *buffer, int buf_sz, void *user_ctx, TickTyp
     return r;
 }
 
+/* -------------------- TCP send helper -------------------- */
+static void send_recording_over_tcp(const uint8_t *data, size_t len)
+{
+    if (!data || len == 0) {
+        ESP_LOGW(TAG, "send_recording_over_tcp: empty buffer");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Starting TCP server on port %d to send %u bytes",
+             RECORDING_PORT, (unsigned)len);
+
+    int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (listen_sock < 0) {
+        ESP_LOGE(TAG, "recording socket() failed");
+        return;
+    }
+
+    int yes = 1;
+    setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
+    struct sockaddr_in addr = {
+        .sin_family      = AF_INET,
+        .sin_port        = htons(RECORDING_PORT),
+        .sin_addr.s_addr = htonl(INADDR_ANY),
+    };
+
+    if (bind(listen_sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        ESP_LOGE(TAG, "recording bind() failed");
+        close(listen_sock);
+        return;
+    }
+
+    if (listen(listen_sock, 1) < 0) {
+        ESP_LOGE(TAG, "recording listen() failed");
+        close(listen_sock);
+        return;
+    }
+
+    ESP_LOGI(TAG, "Recording server listening on 0.0.0.0:%d", RECORDING_PORT);
+
+    struct sockaddr_in cli;
+    socklen_t slen = sizeof(cli);
+    int sock = accept(listen_sock, (struct sockaddr *)&cli, &slen);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "recording accept() failed");
+        close(listen_sock);
+        return;
+    }
+
+    char ip[16];
+    inet_ntoa_r(cli.sin_addr, ip, sizeof(ip));
+    ESP_LOGI(TAG, "Recording client %s:%d connected", ip, ntohs(cli.sin_port));
+
+    // Optional: send length header (4 bytes, big-endian)
+    uint32_t nlen = htonl((uint32_t)len);
+    int n = send(sock, &nlen, sizeof(nlen), 0);
+    if (n != (int)sizeof(nlen)) {
+        ESP_LOGE(TAG, "failed to send length header");
+    } else {
+        // Then send PCM buffer in chunks
+        size_t off = 0;
+        while (off < len) {
+            int tosend = (int)(len - off);
+            if (tosend > 4096) {
+                tosend = 4096;
+            }
+            n = send(sock, data + off, tosend, 0);
+            if (n <= 0) {
+                ESP_LOGE(TAG, "send() failed at offset %u", (unsigned)off);
+                break;
+            }
+            off += (size_t)n;
+        }
+        ESP_LOGI(TAG, "Recording sent: %u/%u bytes", (unsigned)off, (unsigned)len);
+    }
+
+    shutdown(sock, SHUT_RDWR);
+    close(sock);
+    close(listen_sock);
+
+    ESP_LOGI(TAG, "Recording TCP server closed");
+}
+
+/* -------------------- 10s Recording Task -------------------- */
+static void record_10s_task(void *arg)
+{
+    (void)arg;
+    ESP_LOGI(TAG, "10s recording task started");
+
+    // (Re)allocate buffer for recording
+    if (s_record_buf) {
+        free(s_record_buf);
+        s_record_buf = NULL;
+    }
+
+    s_record_buf = (uint8_t *)malloc(RECORD_BYTES);
+    if (!s_record_buf) {
+        ESP_LOGE(TAG, "Failed to allocate %d bytes for recording", (int)RECORD_BYTES);
+        s_is_recording = false;
+        vTaskDelete(NULL);
+        return;
+    }
+
+    size_t offset = 0;
+    const int chunk = BYTES_PER_SECOND / 10;  // ~100 ms per read
+
+    while (offset < RECORD_BYTES) {
+        int wanted = chunk;
+        if (wanted > (int)(RECORD_BYTES - offset)) {
+            wanted = (int)(RECORD_BYTES - offset);
+        }
+
+        int r = audio_recorder_data_read(
+                    s_recorder,
+                    s_record_buf + offset,
+                    wanted,
+                    portMAX_DELAY);
+        if (r <= 0) {
+            ESP_LOGW(TAG, "audio_recorder_data_read returned %d, stopping early", r);
+            break;
+        }
+
+        offset += (size_t)r;
+    }
+
+    s_record_len = offset;
+
+    ESP_LOGI(TAG,
+             "Recording done: %d bytes (~%.2f s at 16k/16-bit mono)",
+             (int)s_record_len,
+             (float)s_record_len / (float)BYTES_PER_SECOND);
+
+    // Send over TCP (SoftAP already up from softAP.c)
+    if (s_record_len > 0) {
+        send_recording_over_tcp(s_record_buf, s_record_len);
+    }
+
+    s_is_recording = false;
+    vTaskDelete(NULL);
+}
+
+/* -------------------- WakeNet Event Callback -------------------- */
 static esp_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
 {
     (void)user_data;
 
     if (event->type == AUDIO_REC_WAKEUP_START) {
-        recorder_sr_wakeup_result_t *wr = (recorder_sr_wakeup_result_t *)event->event_data;
+        recorder_sr_wakeup_result_t *wr =
+            (recorder_sr_wakeup_result_t *)event->event_data;
 
         ESP_LOGI(TAG, "Wakeword DETECTED (vol=%.2f, model=%d, word=%d)",
-                 wr->data_volume, wr->wakenet_model_index, wr->wake_word_index);
+                 wr->data_volume,
+                 wr->wakenet_model_index,
+                 wr->wake_word_index);
 
-        // DETECTED!!!!
+        // Print for your step-1 requirement
         printf("Wakeword detected\n");
         fflush(stdout);
+
+        // Start 10s recording once per wake event
+        if (!s_is_recording) {
+            s_is_recording = true;
+            BaseType_t ret = xTaskCreate(
+                record_10s_task,
+                "rec10s",
+                4096,      // stack size
+                NULL,
+                5,         // priority
+                NULL
+            );
+            if (ret != pdPASS) {
+                ESP_LOGE(TAG, "Failed to create record_10s_task");
+                s_is_recording = false;
+            }
+        }
     }
 
     return ESP_OK;
 }
-
 
 /* -------------------- Public API -------------------- */
 esp_err_t wakenet_start(void)
@@ -158,6 +336,7 @@ esp_err_t wakenet_start(void)
                                                        "model",           // model partition label
                                                        AFE_TYPE_SR,
                                                        AFE_MODE_HIGH_PERF);
+
     // AFE / WakeNet params
     sr_cfg.afe_cfg->memory_alloc_mode       = AFE_MEMORY_ALLOC_MORE_PSRAM;
     sr_cfg.afe_cfg->wakenet_init            = true;
@@ -177,13 +356,15 @@ esp_err_t wakenet_start(void)
     rec_cfg.vad_off   = 800;
 
     s_recorder = audio_recorder_create(&rec_cfg);
-	ESP_ERROR_CHECK(audio_recorder_wakenet_enable(s_recorder, true));
-	ESP_ERROR_CHECK(audio_recorder_vad_check_enable(s_recorder, true));
-	ESP_ERROR_CHECK(audio_recorder_trigger_start(s_recorder));
     if (!s_recorder) {
         ESP_LOGE(TAG, "audio_recorder_create failed");
         return ESP_FAIL;
     }
+
+    // Enable wakeword + VAD and start the recorder
+    ESP_ERROR_CHECK(audio_recorder_wakenet_enable(s_recorder, true));
+    ESP_ERROR_CHECK(audio_recorder_vad_check_enable(s_recorder, true));
+    ESP_ERROR_CHECK(audio_recorder_trigger_start(s_recorder));
 
     ESP_LOGI(TAG, "WakeNet started. Say \"Hi ESP\" …");
     return ESP_OK;
@@ -208,8 +389,21 @@ void wakenet_stop(void)
         s_pipeline = NULL;
     }
 
-    if (s_i2s_reader) { audio_element_deinit(s_i2s_reader); s_i2s_reader = NULL; }
-    if (s_raw)        { audio_element_deinit(s_raw);        s_raw        = NULL; }
+    if (s_i2s_reader) {
+        audio_element_deinit(s_i2s_reader);
+        s_i2s_reader = NULL;
+    }
+    if (s_raw) {
+        audio_element_deinit(s_raw);
+        s_raw = NULL;
+    }
+
+    if (s_record_buf) {
+        free(s_record_buf);
+        s_record_buf = NULL;
+        s_record_len = 0;
+        s_is_recording = false;
+    }
 
     ESP_LOGI(TAG, "WakeNet stopped");
 }
