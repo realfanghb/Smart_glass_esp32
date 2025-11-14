@@ -24,9 +24,6 @@ int audio_player_init(audio_player_t *player);
 int audio_player_play_from_flash(audio_player_t *player,
                                  const uint8_t *start, const uint8_t *end);
 
-// B) 从“文件路径”播放（例如 /sdcard/foo.mp3）
-int audio_player_play_file_path(audio_player_t *player, const char *path);
-
 // 释放资源
 void audio_player_deinit(audio_player_t *player);
 

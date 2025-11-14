@@ -7,6 +7,7 @@ set(EXTRA_COMPONENT_DIRS
         "D:/esp-adf/components/esp-adf-libs"
 )
 
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 

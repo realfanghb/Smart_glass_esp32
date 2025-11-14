@@ -10,23 +10,24 @@
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
-			<item value="invalid"/>
-			<item value="control_server_task"/>
-			<item value="s_ctrl_task"/>
-			<item value="g_tcp_task_handle"/>
-			<item value="reverse_audio_transmitting"/>
-			<item value="tcp_stream_task"/>
-			<item value="tcp_server_task"/>
-			<item value="s_mp3_task"/>
-			<item value="SOFTAP_TCP_PORT"/>
-			<item value="softap_audio_server_start"/>
-			<item value="softap_tcp_stream_start"/>
-			<item value="AUDIO_ELEMENT"/>
-			<item value="recv chunk"/>
-			<item value="i2s_driver_init"/>
-			<item value="I2S_DI_IO"/>
+			<item value="Not in spee"/>
+			<item value="audio_board_key_init"/>
+			<item value="#include &quot;driver/ledc.h&quot;"/>
+			<item value="RECORD_SECONDS"/>
+			<item value="#include &quot;esp_timer.h&quot;"/>
+			<item value="s_start_time_ms"/>
+			<item value="AUDIO_REC_WAKEUP_START"/>
+			<item value="cb"/>
+			<item value="start"/>
+			<item value="wakenet_start"/>
+			<item value="i2s_stream_set_clk"/>
+			<item value="BOTH"/>
+			<item value="pump"/>
+			<item value="decode"/>
+			<item value="// 2)"/>
 		</list>
 		<list key="replacehistory">
+			<item value="AUDIO_HAL_CODEC_MODE_BOTH"/>
 			<item value="vibration_feedback"/>
 			<item value="s_vibration_task"/>
 			<item value="s_video_task"/>

@@ -8,6 +8,7 @@
 #include "esp_peripherals.h"
 #include "audio_element.h"
 
+#include "audio_manager.h"
 // 若要用 B 方案（从文件路径），引入 file_stream
 #include "fatfs_stream.h"   // 或者 spiffs_stream.h，根据你的存储介质
 
@@ -44,7 +45,7 @@ static void wait_until_finished(audio_pipeline_handle_t pipeline, audio_element_
     }
 }
 
-// ---------- 处理解码器上报的音乐信息（动态配置 I2S 时钟） ----------
+// ---------- 处理解码器上报的音乐信息（动态配置/监测 I2S 时钟） ----------
 static void pump_music_info_and_update_clk(audio_player_t *player)
 {
     audio_event_iface_msg_t msg;
@@ -57,7 +58,11 @@ static void pump_music_info_and_update_clk(audio_player_t *player)
             audio_element_getinfo(player->mp3_decoder, &mi);
             ESP_LOGI(TAG, "music info: %d Hz, %d bits, %d ch",
                      mi.sample_rates, mi.bits, mi.channels);
-            i2s_stream_set_clk(player->i2s_writer, mi.sample_rates, mi.bits, mi.channels);
+                     
+         i2s_stream_set_clk(player->i2s_writer, 16000, 16, 1);
+         if (mi.sample_rates != 16000 || mi.bits != 16 || mi.channels != 1) {
+     	 	ESP_LOGW(TAG, "Incoming MP3 not 16k/16bit/mono; please resample upstream.");
+ 			}
         }
     }
 }
@@ -66,10 +71,6 @@ static void pump_music_info_and_update_clk(audio_player_t *player)
 int audio_player_init(audio_player_t *p)
 {
     memset(p, 0, sizeof(*p));
-
-    // 1) 板级与 ES8311
-    p->board = audio_board_init();
-    audio_hal_ctrl_codec(p->board->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
 
     // 2) Pipeline
     audio_pipeline_cfg_t pcfg = DEFAULT_AUDIO_PIPELINE_CONFIG();
@@ -88,7 +89,8 @@ int audio_player_init(audio_player_t *p)
     i2s_stream_cfg_t icfg = I2S_STREAM_CFG_DEFAULT();
 #endif
     icfg.type = AUDIO_STREAM_WRITER;
-    p->i2s_writer = i2s_stream_init(&icfg);
+    icfg.chan_cfg.id = I2S_NUM_1;
+    p->i2s_writer = i2s_stream_init(&icfg);    
     audio_pipeline_register(p->pipeline, p->i2s_writer, "i2s");
 
     const char *link[2] = {"mp3", "i2s"};
@@ -128,53 +130,6 @@ int audio_player_play_from_flash(audio_player_t *p, const uint8_t *start, const 
     return 0;
 }
 
-int audio_player_play_file_path(audio_player_t *p, const char *path)
-{
-    // 用 FATFS stream 作为 reader（也可换成 spiffs_stream）
-    fatfs_stream_cfg_t fcfg = FATFS_STREAM_CFG_DEFAULT();
-    fcfg.type = AUDIO_STREAM_READER;
-    audio_element_handle_t file_reader = fatfs_stream_init(&fcfg);
-
-    // 把 file_reader 插到 mp3_decoder 之前
-    audio_pipeline_unregister(p->pipeline, p->mp3_decoder);
-    audio_pipeline_register(p->pipeline, file_reader,   "file");
-    audio_pipeline_register(p->pipeline, p->mp3_decoder, "mp3");
-
-    const char *link2[3] = {"file", "mp3", "i2s"};
-    audio_pipeline_link(p->pipeline, link2, 3);
-
-    // 打开目标文件
-    audio_element_set_uri(file_reader, path);
-
-    // 播放启动
-    audio_pipeline_run(p->pipeline);
-
-    // 捕获 MUSIC_INFO 并设定 I2S 时钟
-    for (int i = 0; i < 40; ++i) {
-        pump_music_info_and_update_clk(p);
-        vTaskDelay(pdMS_TO_TICKS(50));
-    }
-
-    // 等待播放完成
-    wait_until_finished(p->pipeline, p->i2s_writer);
-
-    // 停止并复位
-    audio_pipeline_stop(p->pipeline);
-    audio_pipeline_wait_for_stop(p->pipeline);
-    audio_pipeline_terminate(p->pipeline);
-    audio_pipeline_reset_ringbuffer(p->pipeline);
-    audio_pipeline_reset_elements(p->pipeline);
-    audio_pipeline_change_state(p->pipeline, AEL_STATE_INIT);
-
-    // 恢复到无文件的 2 元素链（mp3->i2s），便于下次用 A 方案
-    audio_pipeline_unregister(p->pipeline, file_reader);
-    audio_pipeline_unregister(p->pipeline, p->mp3_decoder);
-    audio_pipeline_register(p->pipeline, p->mp3_decoder, "mp3");
-    const char *linkA[2] = {"mp3", "i2s"};
-    audio_pipeline_link(p->pipeline, linkA, 2);
-    audio_element_deinit(file_reader);
-    return 0;
-}
 
 void audio_player_deinit(audio_player_t *p)
 {
@@ -186,8 +141,5 @@ void audio_player_deinit(audio_player_t *p)
     if (p->evt) audio_event_iface_destroy(p->evt);
     if (p->i2s_writer) audio_element_deinit(p->i2s_writer);
     if (p->mp3_decoder) audio_element_deinit(p->mp3_decoder);
-    if (p->board && p->board->audio_hal) {
-        audio_hal_ctrl_codec(p->board->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_STOP);
-    }
     memset(p, 0, sizeof(*p));
 }

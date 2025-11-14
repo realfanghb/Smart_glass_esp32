@@ -2,6 +2,7 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include "audio_manager.h"
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_check.h"
@@ -18,47 +19,44 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_camera.h"
+#include "esp_peripherals.h"
+#include "periph_button.h"
+#include "periph_touch.h"
+#include "periph_adc_button.h"
+#include "audio_event_iface.h"
+#include "board.h"
+#include "driver/ledc.h"
 
 #include "softAP.h"
 #include "audio_play.h"
 
 // ==================== 可按需覆盖的默认配置 ====================
-#ifndef WIFI_SSID
 #define WIFI_SSID       "fanghb"
-#endif
-#ifndef WIFI_PASS
 #define WIFI_PASS       "eecs473_15"
-#endif
-#ifndef WIFI_CHANNEL
 #define WIFI_CHANNEL    6
-#endif
-#ifndef MAX_STA_CONN
 #define MAX_STA_CONN    2
-#endif
-#ifndef VIDEO_PORT
 #define VIDEO_PORT 2000  // Video 传输端口
-#endif
-
-#ifndef REVERSE_AUDIO_PORT
 #define REVERSE_AUDIO_PORT      3000   // MP3 接收端口
-#endif
 
-#ifndef MAX_INMEM_BYTES
 #define MAX_INMEM_BYTES (1 * 1024 * 1024)   // 2MB
-#endif
-
-#ifndef RECV_CHUNK
 #define RECV_CHUNK (4 * 1024)
-#endif
 
-#ifndef CONTROL_PORT
 #define CONTROL_PORT 4000   // Vibration feedback 接收端口
-#endif
 
-#ifndef CONTROL_RX_BUFSZ
 #define CONTROL_RX_BUFSZ 64 // 小缓冲即可
-#endif
 
+// === Haptic PWM config ===
+#define HAPTIC_PWM_GPIO_L   4      // 左通道：IO4
+#define HAPTIC_PWM_GPIO_R   7      // 右通道：IO7
+
+#define HAPTIC_PWM_TIMER    LEDC_TIMER_0
+#define HAPTIC_PWM_MODE     LEDC_LOW_SPEED_MODE
+#define HAPTIC_PWM_RES      LEDC_TIMER_10_BIT   // 0~1023
+
+#define HAPTIC_PWM_CH_L     LEDC_CHANNEL_0
+#define HAPTIC_PWM_CH_R     LEDC_CHANNEL_1
+
+#define ENABLE_PWM   1
 
 static const char *TAG = "softap";
 
@@ -67,6 +65,9 @@ static audio_player_t s_player;
 static TaskHandle_t s_video_task = NULL;
 static TaskHandle_t s_mp3_task = NULL;
 static TaskHandle_t s_vibration_task = NULL;
+static TaskHandle_t s_key_task = NULL;
+
+static bool s_haptic_pwm_inited = false;
 
 // ==================== SoftAP 实现 ====================
 void wifi_init_softap(void)
@@ -284,8 +285,8 @@ static void reverse_audio(void *arg)
 
         ESP_LOGI(TAG, "Transfer OK: %u bytes. Start playback (in-mem).", (unsigned)filled);
 
-        // 直接从内存播放
         int pr = audio_player_play_from_flash(&s_player, mem, mem + filled);
+
         if (pr == 0) {
             ESP_LOGI(TAG, "Playback finished. total=%u bytes%s",
                      (unsigned)filled, header_ok ? "" : " (header not verified)");
@@ -311,6 +312,54 @@ void softap_reverse_audio_start(uint16_t port)
     xTaskCreate(reverse_audio, "mp3_server_task", 4096, NULL, 5, &s_mp3_task);
 }
 
+// ==================== PWM_Initialization ====================
+
+static void haptic_pwm_init(void)
+{
+    if (s_haptic_pwm_inited) {
+        return;
+    }
+
+    // 1) 配置 LEDC 定时器
+    ledc_timer_config_t timer_cfg = {
+        .speed_mode      = HAPTIC_PWM_MODE,
+        .duty_resolution = HAPTIC_PWM_RES,
+        .timer_num       = HAPTIC_PWM_TIMER,
+        .freq_hz         = 5000,          // 5kHz，根据你马达需要可以改
+        .clk_cfg         = LEDC_AUTO_CLK,
+    };
+    ESP_ERROR_CHECK( ledc_timer_config(&timer_cfg) );
+
+    // 2) 配置左通道 (L -> IO4)
+    ledc_channel_config_t ch_l = {
+        .gpio_num   = HAPTIC_PWM_GPIO_L,
+        .speed_mode = HAPTIC_PWM_MODE,
+        .channel    = HAPTIC_PWM_CH_L,
+        .timer_sel  = HAPTIC_PWM_TIMER,
+        .duty       = 0,                 // 初始 0
+        .hpoint     = 0,
+        .intr_type  = LEDC_INTR_DISABLE,
+    };
+    ESP_ERROR_CHECK( ledc_channel_config(&ch_l) );
+
+    // 3) 配置右通道 (R -> IO7)
+    ledc_channel_config_t ch_r = {
+        .gpio_num   = HAPTIC_PWM_GPIO_R,
+        .speed_mode = HAPTIC_PWM_MODE,
+        .channel    = HAPTIC_PWM_CH_R,
+        .timer_sel  = HAPTIC_PWM_TIMER,
+        .duty       = 0,                 // 初始 0
+        .hpoint     = 0,
+        .intr_type  = LEDC_INTR_DISABLE,
+    };
+    ESP_ERROR_CHECK( ledc_channel_config(&ch_r) );
+
+    s_haptic_pwm_inited = true;
+    ESP_LOGI("HAPTIC", "PWM inited on GPIO L=%d (ch%d), R=%d (ch%d)",
+             HAPTIC_PWM_GPIO_L, HAPTIC_PWM_CH_L,
+             HAPTIC_PWM_GPIO_R, HAPTIC_PWM_CH_R);
+}
+
 
 // ==================== Vibration_Feedback ====================
 
@@ -330,6 +379,11 @@ static bool parse_six_chars_to_lr(const uint8_t six[6], uint16_t *L, uint16_t *R
 
 static void vibration_feedback(void *arg)
 {
+	
+	#if ENABLE_HAPTIC_PWM
+	 haptic_pwm_init();
+	#endif
+	
     int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (listen_sock < 0) { ESP_LOGE(TAG, "ctrl socket() failed"); vTaskDelete(NULL); return; }
 
@@ -388,17 +442,36 @@ static void vibration_feedback(void *arg)
                 while (have < 6 && off < (size_t)n) {
                     window[have++] = rxbuf[off++];
                 }
-                if (have == 6) {
-                    uint16_t L, R;
-                    if (parse_six_chars_to_lr(window, &L, &R)) {
-						ESP_LOGI(TAG, "Speeds received: L=%u, R=%u", (unsigned)L, (unsigned)R);                    
-					} 
-					else {
-                        ESP_LOGW(TAG, "invalid 6-char packet: '%c%c%c%c%c%c'",
-                                 window[0], window[1], window[2], window[3], window[4], window[5]);
-                    }
-                    have = 0; // 准备下一帧
-                }
+				if (have == 6) {
+				    uint16_t L, R;
+				    if (parse_six_chars_to_lr(window, &L, &R)) {
+				        // 1) 打印原始 0~100 scale 的值
+				        ESP_LOGI(TAG, "Speeds received: L=%u, R=%u", (unsigned)L, (unsigned)R);
+				
+				        // 2) clamp 到 0~100，避免异常输入
+				        if (L > 100) L = 100;
+				        if (R > 100) R = 100;
+						#if ENABLE_HAPTIC_PWM
+				        // 3) 放缩到 0~1023 (10-bit duty)
+				        //    简单线性映射: duty = round( L/100 * 1023 )
+				        uint32_t dutyL = (uint32_t)((L * 1023 + 50) / 100);  // +50 做四舍五入
+				        uint32_t dutyR = (uint32_t)((R * 1023 + 50) / 100);
+				
+				        // 4) 更新 PWM 输出
+				        ledc_set_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_L, dutyL);
+				        ledc_update_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_L);
+				
+				        ledc_set_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_R, dutyR);
+				        ledc_update_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_R);
+				
+				        ESP_LOGI(TAG, "PWM duty: L=%"PRIu32"/1023, R=%"PRIu32"/1023", dutyL, dutyR);
+				        #endif
+				    } else {
+				        ESP_LOGW(TAG, "invalid 6-char packet: '%c%c%c%c%c%c'",
+				                 window[0], window[1], window[2], window[3], window[4], window[5]);
+				    }
+				    have = 0; // 准备下一帧
+				}
             }
         }
 
@@ -421,3 +494,63 @@ void softap_feedback_start(uint16_t port_unused)
     xTaskCreate(vibration_feedback, "vibration_feedback", 4096, NULL, 5, &s_vibration_task);
 }
 
+// ==================== Volume_Adjustment ====================
+
+static void key_volume_task(void *arg)
+{
+    // 1. 建立 periph_set
+    esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
+    esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
+
+    // 2. 初始化板载按键（根据 board 配置映射到 TOUCH/GPIO/ADC）
+    audio_board_key_init(set);
+
+    // 3. 创建事件接口 & 绑定 periph_set
+    audio_event_iface_cfg_t evt_cfg = AUDIO_EVENT_IFACE_DEFAULT_CFG();
+    audio_event_iface_handle_t evt = audio_event_iface_init(&evt_cfg);
+    audio_event_iface_set_listener(esp_periph_set_get_event_iface(set), evt);
+
+    int volume = 50;
+    if (audio_manager_get_volume(&volume) != ESP_OK) {
+        volume = 50;
+    }
+
+    ESP_LOGI(TAG, "key_volume_task started, initial volume=%d%%", volume);
+
+    while (1) {
+        audio_event_iface_msg_t msg;
+        esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
+        if (ret != ESP_OK) {
+            continue;
+        }
+
+        // 只处理按键事件
+        if ((msg.source_type == PERIPH_ID_TOUCH ||
+             msg.source_type == PERIPH_ID_BUTTON ||
+             msg.source_type == PERIPH_ID_ADC_BTN) &&
+            (msg.cmd == PERIPH_TOUCH_TAP ||
+             msg.cmd == PERIPH_BUTTON_PRESSED ||
+             msg.cmd == PERIPH_ADC_BUTTON_PRESSED)) {
+
+            if ((int)msg.data == get_input_volup_id()) {
+                volume += 10;
+                if (volume > 100) volume = 100;
+                audio_manager_set_volume(volume);
+                ESP_LOGI(TAG, "Vol+: %d%%", volume);
+            } 
+            else if ((int)msg.data == get_input_voldown_id()) {
+                volume -= 10;
+                if (volume < 0) volume = 0;
+                audio_manager_set_volume(volume);
+                ESP_LOGI(TAG, "Vol-: %d%%", volume);
+            }
+        }
+    }
+    vTaskDelete(NULL);
+}
+
+void softap_keys_start(void)
+{
+    if (s_key_task) return;
+    xTaskCreate(key_volume_task, "key_volume_task", 4096, NULL, 5, &s_key_task);
+}
