@@ -147,30 +147,26 @@ esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end
 
     audio_lock();
 
-    // Remember if WakeNet was running so we can restore it later
+    // Remember if WakeNet was running so we can restore it
     bool resume_wakenet = s_wakenet_running;
 
-    // 1) If WakeNet is running, stop it FIRST so it fully releases I2S
+    // 1) Stop WakeNet if running so it releases I2S
     if (s_wakenet_running) {
         ESP_LOGI(TAG, "Stopping WakeNet for playback");
         wakenet_stop();
         s_wakenet_running = false;
     }
 
-    // 2) Always recreate audio_player so we get a fresh I2S handle
-    if (s_player_inited) {
-        ESP_LOGI(TAG, "Deinit previous audio_player before playback");
-        audio_player_deinit(&s_player);
-        s_player_inited = false;
+    // 2) Init player once (after WakeNet is stopped)
+    if (!s_player_inited) {
+        ESP_LOGI(TAG, "Init audio_player (first time)");
+        if (audio_player_init(&s_player) != 0) {
+            ESP_LOGE(TAG, "audio_player_init failed");
+            audio_unlock();
+            return ESP_FAIL;
+        }
+        s_player_inited = true;
     }
-
-    ESP_LOGI(TAG, "Init audio_player for playback");
-    if (audio_player_init(&s_player) != 0) {
-        ESP_LOGE(TAG, "audio_player_init failed");
-        audio_unlock();
-        return ESP_FAIL;
-    }
-    s_player_inited = true;
 
     s_playback_running = true;
     audio_unlock();
@@ -181,22 +177,16 @@ esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end
     audio_lock();
     s_playback_running = false;
 
-    // 4) Deinit player after playback so I2S is free for WakeNet
-    if (s_player_inited) {
-        ESP_LOGI(TAG, "Deinit audio_player after playback");
-        audio_player_deinit(&s_player);
-        s_player_inited = false;
-    }
-
-    // 5) Resume WakeNet if it was running before
+    // 4) Restart WakeNet if it was running before
     if (resume_wakenet) {
         ESP_LOGI(TAG, "Restarting WakeNet after playback");
         esp_err_t wr = wakenet_start();
         if (wr == ESP_OK) {
             s_wakenet_running = true;
         } else {
-            ESP_LOGE(TAG, "Failed to restart WakeNet: %d", wr);
+            ESP_LOGE(TAG, "Failed to restart WakeNet: %s", esp_err_to_name(wr));
         }
+        s_wakenet_paused_for_playback = false;
     }
 
     audio_unlock();
