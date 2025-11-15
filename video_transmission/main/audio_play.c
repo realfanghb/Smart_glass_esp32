@@ -89,7 +89,7 @@ int audio_player_init(audio_player_t *p)
     i2s_stream_cfg_t icfg = I2S_STREAM_CFG_DEFAULT();
 #endif
     icfg.type = AUDIO_STREAM_WRITER;
-    icfg.chan_cfg.id = I2S_NUM_1;
+    // icfg.chan_cfg.id = I2S_NUM_1;
     p->i2s_writer = i2s_stream_init(&icfg);    
     audio_pipeline_register(p->pipeline, p->i2s_writer, "i2s");
 
@@ -108,27 +108,65 @@ int audio_player_play_from_flash(audio_player_t *p, const uint8_t *start, const 
     flash_src_t src = {.start = start, .end = end, .pos = 0};
     audio_element_set_read_cb(p->mp3_decoder, flash_read_cb, &src);
 
-    // 启动播放
+    // ===== Debug: Print audio data length =====
+    size_t len = (size_t)(end - start);
+    ESP_LOGI(TAG, "Playing from flash: start=%p end=%p length=%u bytes",
+             start, end, (unsigned)len);
+
+    // ===== START PIPELINE =====
+    ESP_LOGI(TAG, "Starting audio pipeline");
     audio_pipeline_run(p->pipeline);
 
-    // 在前几帧内尝试抓取 MUSIC_INFO 并更新 I2S 时钟
-    for (int i = 0; i < 40; ++i) { // ~2s 内快速抽水
+    // ===== Pump initial frames =====
+    for (int i = 0; i < 40; ++i) {
         pump_music_info_and_update_clk(p);
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 
-    // 等待结束
-    wait_until_finished(p->pipeline, p->i2s_writer);
+    // ===== Debug: Print decoded audio info (freq, channels, bits) =====
+    audio_element_info_t info = {0};
+    if (audio_element_getinfo(p->mp3_decoder, &info) == ESP_OK) {
+        ESP_LOGI(TAG,
+                 "Decoded audio: sample_rate=%d Hz, channels=%d, bits=%d",
+                 info.sample_rates, info.channels, info.bits);
+    } else {
+        ESP_LOGW(TAG, "Failed to retrieve audio info from decoder");
+    }
 
-    // 停止与复位（以便下次还能继续调用）
+    // ===== PROGRESS LOGGING DURING PLAYBACK =====
+    int elem_idx = 0;
+    while (1) {
+        audio_element_state_t st = audio_element_get_state(p->i2s_writer);
+
+        ESP_LOGI(TAG, "Playing element #%d (state=%d)", elem_idx++, st);
+
+        if (st == AEL_STATE_FINISHED ||
+            st == AEL_STATE_STOPPED  ||
+            st == AEL_STATE_ERROR) {
+            ESP_LOGI(TAG, "Detected end of playback (state=%d)", st);
+            break;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(200)); // log every 200 ms
+    }
+
+    // (Optional) if you still want to use your original helper somewhere else,
+    // you can remove or comment out the next line:
+    // wait_until_finished(p->pipeline, p->i2s_writer);
+
+    // ===== SHUTDOWN SEQUENCE =====
+    ESP_LOGI(TAG, "Stopping and resetting pipeline");
     audio_pipeline_stop(p->pipeline);
     audio_pipeline_wait_for_stop(p->pipeline);
     audio_pipeline_terminate(p->pipeline);
     audio_pipeline_reset_ringbuffer(p->pipeline);
     audio_pipeline_reset_elements(p->pipeline);
     audio_pipeline_change_state(p->pipeline, AEL_STATE_INIT);
+
+    ESP_LOGI(TAG, "Playback completed");
     return 0;
 }
+
 
 
 void audio_player_deinit(audio_player_t *p)

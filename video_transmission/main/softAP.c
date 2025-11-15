@@ -29,6 +29,7 @@
 
 #include "softAP.h"
 #include "audio_play.h"
+#include "audio_manager.h"
 
 // ==================== 可按需覆盖的默认配置 ====================
 #define WIFI_SSID       "fanghb"
@@ -56,7 +57,7 @@
 #define HAPTIC_PWM_CH_L     LEDC_CHANNEL_0
 #define HAPTIC_PWM_CH_R     LEDC_CHANNEL_1
 
-#define ENABLE_PWM   1
+#define ENABLE_PWM   0
 
 static const char *TAG = "softap";
 
@@ -285,8 +286,7 @@ static void reverse_audio(void *arg)
 
         ESP_LOGI(TAG, "Transfer OK: %u bytes. Start playback (in-mem).", (unsigned)filled);
 
-        int pr = audio_player_play_from_flash(&s_player, mem, mem + filled);
-
+		int pr = audio_manager_play_from_flash(mem, mem + filled);
         if (pr == 0) {
             ESP_LOGI(TAG, "Playback finished. total=%u bytes%s",
                      (unsigned)filled, header_ok ? "" : " (header not verified)");

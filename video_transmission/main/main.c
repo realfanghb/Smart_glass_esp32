@@ -23,7 +23,7 @@ void app_main(void)
 	// Wi-Fi SoftAP
 	wifi_init_softap();
 	
-	//ESP_ERROR_CHECK(camera_init_ov2640());
+	ESP_ERROR_CHECK(camera_init_ov2640());
 
 	
 	// Wakenet
@@ -31,7 +31,7 @@ void app_main(void)
 	ESP_ERROR_CHECK(audio_manager_start_wakenet());
 	
 	// video
-	//softap_video_start(2000);
+	softap_video_start(2000);
 	
 	// reverse_audio
 	ESP_ERROR_CHECK(softap_audio_player_init());

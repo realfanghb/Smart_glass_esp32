@@ -3,8 +3,8 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(EXTRA_COMPONENT_DIRS
-        "D:/esp-adf/components"
-        "D:/esp-adf/components/esp-adf-libs"
+        "/Users/jackli/Documents/EspressifIDE/473Proj/esp-adf/components"
+        "/Users/jackli/Documents/EspressifIDE/473Proj/esp-adf/components/esp-adf-libs"
 )
 
 

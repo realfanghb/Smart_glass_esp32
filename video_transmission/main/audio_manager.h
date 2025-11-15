@@ -16,6 +16,9 @@ esp_err_t audio_manager_stop_wakenet(void);
 
 esp_err_t audio_manager_get_volume(int *out_vol);
 esp_err_t audio_manager_set_volume(int vol);
+
+esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end);
+
 #ifdef __cplusplus
 }
 #endif

@@ -7,6 +7,7 @@
 #include "board.h"
 #include "audio_hal.h"
 #include "wakenet.h"
+#include "audio_play.h"
 
 static const char *TAG = "audio_mgr";
 
@@ -16,6 +17,8 @@ static audio_board_handle_t s_board       = NULL;
 static bool s_wakenet_running             = false;
 static bool s_playback_running            = false;
 static bool s_wakenet_paused_for_playback = false;
+static audio_player_t s_player;
+static bool s_player_inited = false;
 
 // ---------- 内部锁 ----------
 
@@ -134,4 +137,54 @@ esp_err_t audio_manager_set_volume(int vol)
         ESP_LOGI(TAG, "Volume set to %d%%", vol);
     }
     return ret;
+}
+
+esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end)
+{
+    if (!start || !end || start >= end) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    audio_lock();
+
+    // 1) If WakeNet running, stop it FIRST so it releases I2S
+    bool resume_wakenet = false;
+    if (s_wakenet_running) {
+        ESP_LOGI(TAG, "Pausing WakeNet for playback");
+        wakenet_stop();
+        s_wakenet_running = false;
+        resume_wakenet = true;
+        s_wakenet_paused_for_playback = true;
+    }
+
+    // 2) Init player once, AFTER WakeNet has been stopped
+    if (!s_player_inited) {
+        ESP_LOGI(TAG, "Init audio_player");
+        audio_player_init(&s_player);
+        s_player_inited = true;
+    }
+
+    s_playback_running = true;
+    audio_unlock();
+
+    // 3) Do actual playback (this blocks until done)
+    int r = audio_player_play_from_flash(&s_player, start, end);
+
+    audio_lock();
+    s_playback_running = false;
+
+    // 4) Resume WakeNet if needed
+    if (resume_wakenet) {
+        ESP_LOGI(TAG, "Resuming WakeNet after playback");
+        if (wakenet_start() == ESP_OK) {
+            s_wakenet_running = true;
+        } else {
+            ESP_LOGE(TAG, "Failed to restart WakeNet");
+        }
+        s_wakenet_paused_for_playback = false;
+    }
+
+    audio_unlock();
+
+    return (r == 0) ? ESP_OK : ESP_FAIL;
 }
