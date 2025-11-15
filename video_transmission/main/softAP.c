@@ -192,12 +192,10 @@ void softap_video_start(uint16_t port)
 
 esp_err_t softap_audio_player_init(void)
 {
-    if (audio_player_init(&s_player) == 0) {
-        ESP_LOGI(TAG, "audio player ready (mp3->i2s->ES8311)");
-        return ESP_OK;
-    }
-    ESP_LOGE(TAG, "audio player init failed");
-    return ESP_FAIL;
+    // Audio playback is now fully managed by audio_manager.
+    // This is kept as a no-op so app_main() doesn't break.
+    ESP_LOGI(TAG, "softap_audio_player_init: no-op (audio_manager owns audio)");
+    return ESP_OK;
 }
 
 
