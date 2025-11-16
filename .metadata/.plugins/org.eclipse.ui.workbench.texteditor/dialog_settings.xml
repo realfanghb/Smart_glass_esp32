@@ -10,6 +10,11 @@
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
+			<item value="deinit"/>
+			<item value="softap_audio_player_init"/>
+			<item value="AUDIO_RECORDER"/>
+			<item value="RECORDING_PORT"/>
+			<item value="s_wakenet_paused_for_playback"/>
 			<item value="Not in spee"/>
 			<item value="audio_board_key_init"/>
 			<item value="#include &quot;driver/ledc.h&quot;"/>
@@ -20,11 +25,6 @@
 			<item value="cb"/>
 			<item value="start"/>
 			<item value="wakenet_start"/>
-			<item value="i2s_stream_set_clk"/>
-			<item value="BOTH"/>
-			<item value="pump"/>
-			<item value="decode"/>
-			<item value="// 2)"/>
 		</list>
 		<list key="replacehistory">
 			<item value="AUDIO_HAL_CODEC_MODE_BOTH"/>

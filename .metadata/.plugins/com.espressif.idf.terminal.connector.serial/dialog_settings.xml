@@ -2,7 +2,7 @@
 <section name="Workbench">
 	<section name="SerialSettingsPage">
 		<item key="idf.monitor.project" value=""/>
-		<item key="cdtserial.portName" value="COM3"/>
+		<item key="cdtserial.portName" value="COM6"/>
 		<item key="idf.monitor.filter" value=""/>
 	</section>
 </section>

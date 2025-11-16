@@ -89,7 +89,7 @@ int audio_player_init(audio_player_t *p)
     i2s_stream_cfg_t icfg = I2S_STREAM_CFG_DEFAULT();
 #endif
     icfg.type = AUDIO_STREAM_WRITER;
-    icfg.chan_cfg.id = I2S_NUM_1;
+    //icfg.chan_cfg.id = I2S_NUM_1;
     p->i2s_writer = i2s_stream_init(&icfg);    
     audio_pipeline_register(p->pipeline, p->i2s_writer, "i2s");
 
@@ -107,7 +107,13 @@ int audio_player_play_from_flash(audio_player_t *p, const uint8_t *start, const 
 {
     flash_src_t src = {.start = start, .end = end, .pos = 0};
     audio_element_set_read_cb(p->mp3_decoder, flash_read_cb, &src);
+    
+    size_t len = (size_t)(end - start);
+    ESP_LOGI(TAG, "Playing from flash: start=%p end=%p length=%u bytes",
+             start, end, (unsigned)len);
 
+    // ===== START PIPELINE =====
+    ESP_LOGI(TAG, "Starting audio pipeline");
     // 启动播放
     audio_pipeline_run(p->pipeline);
 
@@ -118,9 +124,41 @@ int audio_player_play_from_flash(audio_player_t *p, const uint8_t *start, const 
     }
 
     // 等待结束
-    wait_until_finished(p->pipeline, p->i2s_writer);
+    //wait_until_finished(p->pipeline, p->i2s_writer);
 
-    // 停止与复位（以便下次还能继续调用）
+    // ===== Debug: Print decoded audio info (freq, channels, bits) =====
+    audio_element_info_t info = {0};
+    if (audio_element_getinfo(p->mp3_decoder, &info) == ESP_OK) {
+        ESP_LOGI(TAG,
+                 "Decoded audio: sample_rate=%d Hz, channels=%d, bits=%d",
+                 info.sample_rates, info.channels, info.bits);
+    } else {
+        ESP_LOGW(TAG, "Failed to retrieve audio info from decoder");
+    }
+
+    // ===== PROGRESS LOGGING DURING PLAYBACK =====
+    int elem_idx = 0;
+    while (1) {
+        audio_element_state_t st = audio_element_get_state(p->i2s_writer);
+        ESP_LOGI(TAG, "Playing element #%d (state=%d)", elem_idx++, st);
+
+        if (st == AEL_STATE_FINISHED ||
+            st == AEL_STATE_STOPPED  ||
+            st == AEL_STATE_ERROR) {
+            ESP_LOGI(TAG, "Detected end of playback (state=%d)", st);
+            break;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(200)); // log every 200 ms
+    }
+
+    // (Optional) if you still want to use your original helper somewhere else,
+    // you can remove or comment out the next line:
+    // wait_until_finished(p->pipeline, p->i2s_writer);
+
+    // ===== SHUTDOWN SEQUENCE =====
+    ESP_LOGI(TAG, "Stopping and resetting pipeline");
+    
     audio_pipeline_stop(p->pipeline);
     audio_pipeline_wait_for_stop(p->pipeline);
     audio_pipeline_terminate(p->pipeline);
@@ -134,12 +172,39 @@ int audio_player_play_from_flash(audio_player_t *p, const uint8_t *start, const 
 void audio_player_deinit(audio_player_t *p)
 {
     if (!p) return;
+
     if (p->pipeline) {
+        // 1) 先把元素从 pipeline 注销掉，避免 pipeline_deinit 再去 destroy 它们
+        if (p->i2s_writer) {
+            audio_pipeline_unregister(p->pipeline, p->i2s_writer);
+        }
+        if (p->mp3_decoder) {
+            audio_pipeline_unregister(p->pipeline, p->mp3_decoder);
+        }
+
+        // 2) 移除监听，再销毁 pipeline 自身
         audio_pipeline_remove_listener(p->pipeline);
         audio_pipeline_deinit(p->pipeline);
+        p->pipeline = NULL;
     }
-    if (p->evt) audio_event_iface_destroy(p->evt);
-    if (p->i2s_writer) audio_element_deinit(p->i2s_writer);
-    if (p->mp3_decoder) audio_element_deinit(p->mp3_decoder);
+
+    // 3) 销毁事件接口
+    if (p->evt) {
+        audio_event_iface_destroy(p->evt);
+        p->evt = NULL;
+    }
+
+    // 4) 最后单独销毁各个 element
+    if (p->i2s_writer) {
+        audio_element_deinit(p->i2s_writer);
+        p->i2s_writer = NULL;
+    }
+    if (p->mp3_decoder) {
+        audio_element_deinit(p->mp3_decoder);
+        p->mp3_decoder = NULL;
+    }
+
+    // 5) 清空结构体（可选）
     memset(p, 0, sizeof(*p));
 }
+

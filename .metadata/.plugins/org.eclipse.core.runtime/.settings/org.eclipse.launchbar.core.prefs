@@ -40,7 +40,7 @@ LaunchTargetManager/com.espressif.idf.launch.serial.core.serialFlashTarget,esp32
 LaunchTargetManager/com.espressif.idf.launch.serial.core.serialFlashTarget,esp32s3/com.espressif.idf.launch.serial.core.board=
 LaunchTargetManager/com.espressif.idf.launch.serial.core.serialFlashTarget,esp32s3/com.espressif.idf.launch.serial.core.flash_voltage=default
 LaunchTargetManager/com.espressif.idf.launch.serial.core.serialFlashTarget,esp32s3/com.espressif.idf.launch.serial.core.idfTarget=esp32s3
-LaunchTargetManager/com.espressif.idf.launch.serial.core.serialFlashTarget,esp32s3/com.espressif.idf.launch.serial.core.serialPort=COM4
+LaunchTargetManager/com.espressif.idf.launch.serial.core.serialFlashTarget,esp32s3/com.espressif.idf.launch.serial.core.serialPort=COM6
 LaunchTargetManager/com.espressif.idf.launch.serial.core.serialFlashTarget,esp32s3/name=esp32s3
 LaunchTargetManager/com.espressif.idf.launch.serial.core.serialFlashTarget,esp32s3/os=esp32s3
 LaunchTargetManager/configs/New_configuration=com.espressif.idf.launch.serial.core.serialFlashTarget\:
@@ -60,7 +60,7 @@ LaunchTargetManager/configs/softAP=com.espressif.idf.launch.serial.core.serialFl
 LaunchTargetManager/configs/softAP\ Configuration=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32s3
 LaunchTargetManager/configs/softAP\ Debug=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32
 LaunchTargetManager/configs/test=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32s3
-LaunchTargetManager/configs/test\ Debug=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32s3
+LaunchTargetManager/configs/test\ Debug=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32
 LaunchTargetManager/configs/video_transmission=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32s3
 LaunchTargetManager/configs/video_transmission\ Configuration=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32s3
 LaunchTargetManager/configs/video_transmission\ Debug=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32
@@ -71,6 +71,7 @@ com.espressif.idf.debug.gdbjtag.openocd.descriptorType\:hello_world\ Debug/activ
 com.espressif.idf.debug.gdbjtag.openocd.descriptorType\:i2s_es8311\ Debug/activeLaunchMode=debug
 com.espressif.idf.debug.gdbjtag.openocd.descriptorType\:softAP\ Debug/activeLaunchMode=debug
 com.espressif.idf.debug.gdbjtag.openocd.descriptorType\:test\ Debug/activeLaunchMode=debug
+com.espressif.idf.debug.gdbjtag.openocd.descriptorType\:test\ Debug/activeLaunchTarget=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32
 com.espressif.idf.debug.gdbjtag.openocd.descriptorType\:video_transmission\ Debug/activeLaunchMode=debug
 com.espressif.idf.debug.gdbjtag.openocd.descriptorType\:video_transmission\ Debug/activeLaunchTarget=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32
 com.espressif.idf.launch.serial.core.idf.descriptorType\:New_configuration\ (1)/activeLaunchMode=run
@@ -89,6 +90,7 @@ com.espressif.idf.launch.serial.core.idf.descriptorType\:softAP\ Configuration/a
 com.espressif.idf.launch.serial.core.idf.descriptorType\:softAP/activeLaunchMode=run
 com.espressif.idf.launch.serial.core.idf.descriptorType\:softAP/activeLaunchTarget=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32s3
 com.espressif.idf.launch.serial.core.idf.descriptorType\:test/activeLaunchMode=run
+com.espressif.idf.launch.serial.core.idf.descriptorType\:test/activeLaunchTarget=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32s3
 com.espressif.idf.launch.serial.core.idf.descriptorType\:video_transmission/activeLaunchMode=run
 com.espressif.idf.launch.serial.core.idf.descriptorType\:video_transmission/activeLaunchTarget=com.espressif.idf.launch.serial.core.serialFlashTarget\:esp32s3
 configDescList=com.espressif.idf.debug.gdbjtag.openocd.descriptorType\:video_transmission Debug,org.eclipse.cdt.debug.core.coreBuildDescriptorType\:main,org.eclipse.cdt.debug.core.coreBuildDescriptorType\:my_board,org.eclipse.cdt.debug.core.coreBuildDescriptorType\:play_mp3_control,com.espressif.idf.launch.serial.core.idf.descriptorType\:video_transmission

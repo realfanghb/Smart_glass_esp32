@@ -9,7 +9,6 @@
 #include "freertos/task.h"
 #include "esp_err.h"
 #include "esp_log.h"
-
 #include "audio_element.h"
 #include "audio_pipeline.h"
 #include "i2s_stream.h"
@@ -19,12 +18,12 @@
 #include "esp_timer.h"
 #include "audio_hal.h"
 #include "board.h"
-
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
 #include "lwip/netdb.h"
 
 #include "wakenet.h"
+
 
 #define SR_RATE_HZ                 16000
 
@@ -237,7 +236,7 @@ static void record_10s_task(void *arg)
     }
 
     size_t offset = 0;
-    const int chunk = BYTES_PER_SECOND / 10;  // ~100 ms per read
+    const int chunk = BYTES_PER_SECOND / 5;  // ~200 ms per read
     while (offset < RECORD_BYTES) {
         int wanted = chunk;
         if (wanted > (int)(RECORD_BYTES - offset)) {
@@ -352,7 +351,7 @@ esp_err_t wakenet_start(void)
     rec_cfg.read      = (recorder_data_read_t)&input_cb_for_afe;
     rec_cfg.sr_handle = recorder_sr_create(&sr_cfg, &rec_cfg.sr_iface);
     rec_cfg.event_cb  = rec_engine_cb;
-    rec_cfg.vad_off   = 800;
+    rec_cfg.vad_off   = 3000;
 
     s_recorder = audio_recorder_create(&rec_cfg);
     if (!s_recorder) {
@@ -362,7 +361,7 @@ esp_err_t wakenet_start(void)
 	
     // Enable wakeword + VAD and start the recorder
     ESP_ERROR_CHECK(audio_recorder_wakenet_enable(s_recorder, true));
-    ESP_ERROR_CHECK(audio_recorder_vad_check_enable(s_recorder, true));
+    ESP_ERROR_CHECK(audio_recorder_vad_check_enable(s_recorder, false));
     ESP_ERROR_CHECK(audio_recorder_trigger_start(s_recorder));
 
     ESP_LOGI(TAG, "WakeNet started. Say \"Hi ESP\" …");
