@@ -443,17 +443,17 @@ static void vibration_feedback(void *arg)
 				if (have == 6) {
 				    uint16_t L, R;
 				    if (parse_six_chars_to_lr(window, &L, &R)) {
-				        // 1) 打印原始 0~100 scale 的值
+				        // 1) 打印原始 0~999 scale 的值
 				        ESP_LOGI(TAG, "Speeds received: L=%u, R=%u", (unsigned)L, (unsigned)R);
 				
 				        // 2) clamp 到 0~100，避免异常输入
-				        if (L > 100) L = 100;
-				        if (R > 100) R = 100;
+				        if (L > 999) L = 999;
+				        if (R > 999) R = 999;
 						#if ENABLE_HAPTIC_PWM
 				        // 3) 放缩到 0~1023 (10-bit duty)
-				        //    简单线性映射: duty = round( L/100 * 1023 )
-				        uint32_t dutyL = (uint32_t)((L * 1023 + 50) / 100);  // +50 做四舍五入
-				        uint32_t dutyR = (uint32_t)((R * 1023 + 50) / 100);
+				        //    简单线性映射: duty = round( L/1000 * 1023 )
+				        uint32_t dutyL = (uint32_t)((L * 1023 + 50) / 1000);  // +50 做四舍五入
+				        uint32_t dutyR = (uint32_t)((R * 1023 + 50) / 1000);
 				
 				        // 4) 更新 PWM 输出
 				        ledc_set_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_L, dutyL);

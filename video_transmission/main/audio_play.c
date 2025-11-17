@@ -172,12 +172,38 @@ int audio_player_play_from_flash(audio_player_t *p, const uint8_t *start, const 
 void audio_player_deinit(audio_player_t *p)
 {
     if (!p) return;
+
     if (p->pipeline) {
+        // 1) 先把元素从 pipeline 注销掉，避免 pipeline_deinit 再去 destroy 它们
+        if (p->i2s_writer) {
+            audio_pipeline_unregister(p->pipeline, p->i2s_writer);
+        }
+        if (p->mp3_decoder) {
+            audio_pipeline_unregister(p->pipeline, p->mp3_decoder);
+        }
+
+        // 2) 移除监听，再销毁 pipeline 自身
         audio_pipeline_remove_listener(p->pipeline);
         audio_pipeline_deinit(p->pipeline);
+        p->pipeline = NULL;
     }
-    if (p->evt) audio_event_iface_destroy(p->evt);
-    if (p->i2s_writer) audio_element_deinit(p->i2s_writer);
-    if (p->mp3_decoder) audio_element_deinit(p->mp3_decoder);
+
+    // 3) 销毁事件接口
+    if (p->evt) {
+        audio_event_iface_destroy(p->evt);
+        p->evt = NULL;
+    }
+
+    // 4) 最后单独销毁各个 element
+    if (p->i2s_writer) {
+        audio_element_deinit(p->i2s_writer);
+        p->i2s_writer = NULL;
+    }
+    if (p->mp3_decoder) {
+        audio_element_deinit(p->mp3_decoder);
+        p->mp3_decoder = NULL;
+    }
+
+    // 5) 清空结构体（可选）
     memset(p, 0, sizeof(*p));
 }
