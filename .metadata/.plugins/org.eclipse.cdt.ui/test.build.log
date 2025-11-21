@@ -1,22 +1,13 @@
-                            Memory Type Usage Summary                             
-+--------------------------------------------------------------------------------+
-| Memory Type/Section | Used [bytes] | Used [%] | Remain [bytes] | Total [bytes] |
-|---------------------+--------------+----------+----------------+---------------|
-| Flash Code          |       538242 |          |                |               |
-|    .text            |       538242 |          |                |               |
-| DIRAM               |       106231 |    31.08 |         235529 |        341760 |
-|    .text            |        72063 |    21.09 |                |               |
-|    .data            |        18760 |     5.49 |                |               |
-|    .bss             |        15408 |     4.51 |                |               |
-| Flash Data          |       104540 |          |                |               |
-|    .rodata          |       104284 |          |                |               |
-|    .appdesc         |          256 |          |                |               |
-| IRAM                |        16383 |    99.99 |              1 |         16384 |
-|    .text            |        15356 |    93.73 |                |               |
-|    .vectors         |         1027 |     6.27 |                |               |
-| RTC FAST            |           52 |     0.63 |           8140 |          8192 |
-|    .force_fast      |           28 |     0.34 |                |               |
-|    .rtc_reserved    |           24 |     0.29 |                |               |
-+--------------------------------------------------------------------------------+
-C:\Users\Lenovo\.espressif\python_env\idf5.4_py3.13_env\Scripts\python.exe D:\esp-adf\esp-idf\components\partition_table\gen_esp32part.py D:\Espressif_IDE_Workspace\test\build\partition_table\partition-table.bin
-Total time taken to build the project: 15,432 ms
+Total sizes:
+Used static IRAM:   53110 bytes ( 309130 remain, 14.7% used)
+      .text size:   52083 bytes
+   .vectors size:    1027 bytes
+Used stat D/IRAM:   11316 bytes ( 334540 remain, 3.3% used)
+      .data size:    8700 bytes
+      .bss  size:    2616 bytes
+Used Flash size :  143995 bytes
+      .text     :  105759 bytes
+      .rodata   :   37980 bytes
+Total image size:  205805 bytes (.bin may be padded larger)
+C:\Users\Lenovo\.espressif\python_env\idf5.0_py3.13_env\Scripts\python.exe D:\esp-idf\components\partition_table\gen_esp32part.py D:\Espressif_IDE_Workspace\test\build\partition_table\partition-table.bin
+Total time taken to build the project: 99,550 ms

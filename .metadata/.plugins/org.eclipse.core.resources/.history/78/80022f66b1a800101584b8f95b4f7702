@@ -1,3 +1,0 @@
-idf_component_register(SRCS "main.c"  "ov2640_init.c" "softAP.c" "keypad_snapshot.c"
-                    INCLUDE_DIRS "."
-                    REQUIRES driver esp_wifi esp_timer nvs_flash esp_netif esp32-camera)

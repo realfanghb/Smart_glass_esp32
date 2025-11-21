@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <section name="Workbench">
 	<section name="SerialSettingsPage">
-		<item key="idf.monitor.project" value="softAP"/>
-		<item key="cdtserial.portName" value="COM12"/>
+		<item key="idf.monitor.project" value=""/>
+		<item key="cdtserial.portName" value="COM6"/>
 		<item key="idf.monitor.filter" value=""/>
 	</section>
 </section>
