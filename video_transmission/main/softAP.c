@@ -57,7 +57,7 @@
 #define HAPTIC_PWM_CH_L     LEDC_CHANNEL_0
 #define HAPTIC_PWM_CH_R     LEDC_CHANNEL_1
 
-#define ENABLE_PWM   0
+#define ENABLE_HAPTIC_PWM   0
 
 static const char *TAG = "softap";
 
@@ -455,6 +455,7 @@ static void vibration_feedback(void *arg)
 				        // 2) clamp 到 0~100，避免异常输入
 				        if (L > 100) L = 100;
 				        if (R > 100) R = 100;
+				        
 						#if ENABLE_HAPTIC_PWM
 				        // 3) 放缩到 0~1023 (10-bit duty)
 				        //    简单线性映射: duty = round( L/100 * 1023 )

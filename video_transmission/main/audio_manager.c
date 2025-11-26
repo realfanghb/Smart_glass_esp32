@@ -21,6 +21,9 @@ static bool s_wakenet_paused_for_playback = false;
 
 static audio_player_t s_player;
 static bool s_player_inited = false;
+
+static int s_current_volume = 80;
+
 // ---------- 内部锁 ----------
 
 static void audio_lock(void)
@@ -59,7 +62,9 @@ void audio_manager_init(void)
                              AUDIO_HAL_CODEC_MODE_BOTH,
                              AUDIO_HAL_CTRL_START);
         ESP_LOGI(TAG, "Codec initialized once: MODE=BOTH, START");
-    }
+        audio_hal_set_volume(s_board->audio_hal, s_current_volume);
+        ESP_LOGI(TAG, "Codec initialized once, volume=%d%%", s_current_volume);    
+	}
 
     audio_unlock();
 }
@@ -132,7 +137,10 @@ esp_err_t audio_manager_set_volume(int vol)
 
     audio_lock();
     esp_err_t ret = audio_hal_set_volume(s_board->audio_hal, vol);
-    audio_unlock();
+    if (ret == ESP_OK) {
+        s_current_volume = vol;   // 记住当前音量
+    }    
+	audio_unlock();
 
     if (ret == ESP_OK) {
         ESP_LOGI(TAG, "Volume set to %d%%", vol);
@@ -174,6 +182,7 @@ esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end
     audio_unlock();
 
     // 3) Do actual playback (this blocks until done)
+    audio_hal_set_volume(s_board->audio_hal, s_current_volume);
     int r = audio_player_play_from_flash(&s_player, start, end);
 
     audio_lock();
@@ -193,7 +202,6 @@ esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end
             s_wakenet_running = true;
         } else {
             ESP_LOGE(TAG, "Failed to restart WakeNet: %d", wr);
-
         }
     }
 

@@ -10,6 +10,13 @@
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
+			<item value="s_current_volume"/>
+			<item value="RECV_CHUNK"/>
+			<item value="haptic_pwm_init"/>
+			<item value="HAPTIC_PWM_GPIO_L"/>
+			<item value="if (r"/>
+			<item value="audio_player"/>
+			<item value="init"/>
 			<item value="deinit"/>
 			<item value="softap_audio_player_init"/>
 			<item value="AUDIO_RECORDER"/>
@@ -18,13 +25,6 @@
 			<item value="Not in spee"/>
 			<item value="audio_board_key_init"/>
 			<item value="#include &quot;driver/ledc.h&quot;"/>
-			<item value="RECORD_SECONDS"/>
-			<item value="#include &quot;esp_timer.h&quot;"/>
-			<item value="s_start_time_ms"/>
-			<item value="AUDIO_REC_WAKEUP_START"/>
-			<item value="cb"/>
-			<item value="start"/>
-			<item value="wakenet_start"/>
 		</list>
 		<list key="replacehistory">
 			<item value="AUDIO_HAL_CODEC_MODE_BOTH"/>
