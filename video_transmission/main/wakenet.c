@@ -31,17 +31,15 @@
 #define CODEC_ADC_I2S_PORT         0
 #endif
 
-// ---- Recording config ----
-#define MAX_SPEECH_SECONDS         30 // max time of recorded speech
+// ---- 10s recording config ----
+#define RECORD_SECONDS             5
 #define BYTES_PER_SECOND           (SR_RATE_HZ * 2)   // 16-bit mono = 2 bytes/sample
-#define RECORD_BYTES               (MAX_SPEECH_SECONDS * BYTES_PER_SECOND)
-#define WAKEWORD_PATIENCE_SECONDS  5 // max time to wait for speech after wakeword detected
-#define SPEECH_MAX_GAP_SECONDS     1 // max gap of silence within speech
+#define RECORD_BYTES               (RECORD_SECONDS * BYTES_PER_SECOND)
 
 // TCP port for sending recording (ESP acts as server)
 #define RECORDING_PORT             1000
 
-#define SECONDS_BEFORE_START        3000
+#define SECONDS_BEFORE_START    3000
 
 static const char *TAG = "wakenet_min";
 static int64_t s_start_time_ms = 0;
@@ -56,8 +54,6 @@ static audio_rec_handle_t        s_recorder   = NULL;
 static uint8_t *s_record_buf   = NULL;
 static size_t   s_record_len   = 0;
 static bool     s_is_recording = false;
-static volatile bool s_vad_active = false;
-static int64_t s_last_wakeup_time_ms = 0;
 
 /* -------------------- ADF pipeline: I2S -> RAW -------------------- */
 static esp_err_t build_capture_pipeline(void)
@@ -223,7 +219,8 @@ static void send_recording_over_tcp(const uint8_t *data, size_t len)
 static void record_10s_task(void *arg)
 {
     (void)arg;
-    ESP_LOGI(TAG, "Recording task started");
+    ESP_LOGI(TAG, "10s recording task started");
+
     // (Re)allocate buffer for recording
     if (s_record_buf) {
         free(s_record_buf);
@@ -238,29 +235,16 @@ static void record_10s_task(void *arg)
         return;
     }
 
-    if (!s_vad_active) {
-        ESP_LOGI(TAG, "VAD not active, aborting recording");
-        s_is_recording = false;
-        vTaskDelete(NULL);
-        return;
-    }
-
     size_t offset = 0;
     const int chunk = BYTES_PER_SECOND / 5;  // ~200 ms per read
-    const TickType_t read_timeout = pdMS_TO_TICKS(SPEECH_MAX_GAP_SECONDS * 1000);
-    const TickType_t max_duration = pdMS_TO_TICKS(MAX_SPEECH_SECONDS * 1000);  
-
     const TickType_t t_start = xTaskGetTickCount();
+    const TickType_t max_duration = pdMS_TO_TICKS(RECORD_SECONDS * 1000);  
 
     while (offset < RECORD_BYTES) {
         TickType_t now = xTaskGetTickCount();
         if (now - t_start > max_duration) {
             ESP_LOGI(TAG, "Max duration (%d seconds) reached, stopping recording.",
-                     MAX_SPEECH_SECONDS);
-            break;
-        }
-        if (!s_vad_active) {
-            ESP_LOGI(TAG, "VAD ended, stopping recording.");
+                     RECORD_SECONDS);
             break;
         }
 
@@ -273,33 +257,28 @@ static void record_10s_task(void *arg)
                     s_recorder,
                     s_record_buf + offset,
                     wanted,
-                    read_timeout);
-        if (r < 0) {
-            ESP_LOGW(TAG, "audio_recorder_data_read error");
-            s_is_recording = false;
-            vTaskDelete(NULL);
-            return;
-        }
-        if (r == 0) {
-            ESP_LOGI(TAG, "Silence for %d seconds, early stopping.", SPEECH_MAX_GAP_SECONDS);
+                    portMAX_DELAY);
+        if (r <= 0) {
+            ESP_LOGW(TAG, "audio_recorder_data_read returned %d, stopping early", r);
             break;
         }
         offset += (size_t)r;
     }
  
     s_record_len = offset;
-    float recorded_seconds = (float)s_record_len / BYTES_PER_SECOND;
 
-    ESP_LOGI(TAG, "Recording done: %d bytes (~%.2f s at 16k/16-bit mono)",
+    ESP_LOGI(TAG,
+             "Recording done: %d bytes (~%.2f s at 16k/16-bit mono)",
              (int)s_record_len,
-             recorded_seconds);
+             (float)s_record_len / (float)BYTES_PER_SECOND);
 
     // Send over TCP (SoftAP already up from softAP.c)
     if (s_record_len > 0) {
         send_recording_over_tcp(s_record_buf, s_record_len);
-    } else {
-        ESP_LOGI(TAG, "No data recorded, skipping TCP send");
     }
+
+	UBaseType_t watermark = uxTaskGetStackHighWaterMark(NULL);
+	ESP_LOGI(TAG, "record_10s_task stack high water mark: %u words", (unsigned)watermark);
 
     s_is_recording = false;
     vTaskDelete(NULL);
@@ -309,34 +288,23 @@ static void record_10s_task(void *arg)
 static esp_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
 {
     (void)user_data;
-    int64_t now_ms = esp_timer_get_time() / 1000;
 
     if (event->type == AUDIO_REC_WAKEUP_START) {
-        if (now_ms - s_start_time_ms < SECONDS_BEFORE_START) {
+        int64_t now = esp_timer_get_time() / 1000;
+        if (now - s_start_time_ms < SECONDS_BEFORE_START) {
             return ESP_OK;
         }
-        s_last_wakeup_time_ms = now_ms;
-
         recorder_sr_wakeup_result_t *wr =
             (recorder_sr_wakeup_result_t *)event->event_data;
 
-        ESP_LOGI(
-            TAG, "Wakeword DETECTED (vol=%.2f, model=%d, word=%d)", 
-            wr->data_volume, wr->wakenet_model_index, wr->wake_word_index
-        );
+        ESP_LOGI(TAG, "Wakeword DETECTED (vol=%.2f, model=%d, word=%d)",
+                 wr->data_volume,
+                 wr->wakenet_model_index,
+                 wr->wake_word_index);
 
         // Print for your step-1 requirement
-        printf("Wakeword detected\n");
-        fflush(stdout);
-    } else if (event->type == AUDIO_REC_VAD_START) {
-        ESP_LOGI(TAG, "AUDIO_REC_VAD_START");
-        if (now_ms - s_last_wakeup_time_ms > WAKEWORD_PATIENCE_SECONDS * 1000) {
-            ESP_LOGI(TAG, "VAD_START too late (%.2f ms after wakeword), ignoring",
-                     (double)(now_ms - s_last_wakeup_time_ms));
-            return ESP_OK;
-        }
-
-        s_vad_active = true;
+        //printf("Wakeword detected\n");
+        //fflush(stdout);
 
         // Start 10s recording once per wake event
         if (!s_is_recording) {
@@ -344,19 +312,19 @@ static esp_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
             BaseType_t ret = xTaskCreate(
                 record_10s_task,
                 "rec10s",
-                4096,      // stack size
+                3072,      // stack size
                 NULL,
                 5,         // priority
                 NULL
             );
             if (ret != pdPASS) {
                 ESP_LOGE(TAG, "Failed to create record_10s_task");
+				size_t largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+				ESP_LOGE(TAG, "Failed to create record_10s_task, largest_int=%u", (unsigned)largest);
                 s_is_recording = false;
+
             }
         }
-    } else if (event->type == AUDIO_REC_VAD_END) {
-        ESP_LOGI(TAG, "AUDIO_REC_VAD_END");
-        s_vad_active = false;
     }
 
     return ESP_OK;
@@ -386,7 +354,7 @@ esp_err_t wakenet_start(void)
     // AFE / WakeNet params
     sr_cfg.afe_cfg->memory_alloc_mode       = AFE_MEMORY_ALLOC_MORE_PSRAM;
     sr_cfg.afe_cfg->wakenet_init            = true;
-    sr_cfg.afe_cfg->vad_mode                = VAD_MODE_2;
+    sr_cfg.afe_cfg->vad_mode                = VAD_MODE_4;
     sr_cfg.afe_cfg->aec_init                = false;           // no AEC now
     sr_cfg.afe_cfg->agc_mode                = AFE_MN_PEAK_NO_AGC;
     sr_cfg.afe_cfg->pcm_config.sample_rate  = SR_RATE_HZ;      // 16 kHz
@@ -399,21 +367,20 @@ esp_err_t wakenet_start(void)
     rec_cfg.read      = (recorder_data_read_t)&input_cb_for_afe;
     rec_cfg.sr_handle = recorder_sr_create(&sr_cfg, &rec_cfg.sr_iface);
     rec_cfg.event_cb  = rec_engine_cb;
-    rec_cfg.vad_off   = SPEECH_MAX_GAP_SECONDS * 1000; // time of silence to consider VAD end
+    rec_cfg.vad_off   = 3000;
 
     s_recorder = audio_recorder_create(&rec_cfg);
     if (!s_recorder) {
         ESP_LOGE(TAG, "audio_recorder_create failed");
         return ESP_FAIL;
     }
+    ESP_LOGI(TAG, "WakeNet started. Say \"Hi ESP\" …");
+    s_start_time_ms = esp_timer_get_time() / 1000;
 	
     // Enable wakeword + VAD and start the recorder
     ESP_ERROR_CHECK(audio_recorder_wakenet_enable(s_recorder, true));
-    ESP_ERROR_CHECK(audio_recorder_vad_check_enable(s_recorder, true));
+    ESP_ERROR_CHECK(audio_recorder_vad_check_enable(s_recorder, false));
     ESP_ERROR_CHECK(audio_recorder_trigger_start(s_recorder));
-
-    ESP_LOGI(TAG, "WakeNet started. Say \"Hi ESP\" …");
-    s_start_time_ms = esp_timer_get_time() / 1000;
 
     return ESP_OK;
 }
