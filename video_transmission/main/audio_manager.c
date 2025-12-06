@@ -22,7 +22,7 @@ static bool s_wakenet_paused_for_playback = false;
 static audio_player_t s_player;
 static bool s_player_inited = false;
 
-static int s_current_volume = 80;
+static int s_current_volume = 100;
 
 // ---------- 内部锁 ----------
 

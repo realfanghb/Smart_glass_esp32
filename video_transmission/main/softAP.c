@@ -26,6 +26,8 @@
 #include "audio_event_iface.h"
 #include "board.h"
 #include "driver/ledc.h"
+#include "esp_heap_caps.h"
+
 
 #include "softAP.h"
 #include "audio_play.h"
@@ -35,11 +37,11 @@
 #define WIFI_SSID       "fanghb"
 #define WIFI_PASS       "eecs473_15"
 #define WIFI_CHANNEL    6
-#define MAX_STA_CONN    2
+#define MAX_STA_CONN    4
 #define VIDEO_PORT 2000  // Video 传输端口
 #define REVERSE_AUDIO_PORT      3000   // MP3 接收端口
 
-#define MAX_INMEM_BYTES (1 * 1024 * 1024)   // 2MB
+#define MAX_INMEM_BYTES (1 * 512* 1024)   // 512KB
 #define RECV_CHUNK (4 * 1024)
 
 #define CONTROL_PORT 4000   // Vibration feedback 接收端口
@@ -57,7 +59,7 @@
 #define HAPTIC_PWM_CH_L     LEDC_CHANNEL_0
 #define HAPTIC_PWM_CH_R     LEDC_CHANNEL_1
 
-#define ENABLE_HAPTIC_PWM   0
+#define ENABLE_HAPTIC_PWM   1
 
 static const char *TAG = "softap";
 
@@ -69,6 +71,14 @@ static TaskHandle_t s_vibration_task = NULL;
 static TaskHandle_t s_key_task = NULL;
 
 static bool s_haptic_pwm_inited = false;
+
+void dump_spiram_stat(const char *tag)
+{
+    size_t free_spiram    = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    size_t largest_spiram = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+    ESP_LOGI(tag, "SPIRAM free=%u, largest=%u",
+             (unsigned)free_spiram, (unsigned)largest_spiram);
+}
 
 // ==================== SoftAP 实现 ====================
 void wifi_init_softap(void)
@@ -171,7 +181,7 @@ static void video_transmitting(void *arg)
         char ip[16]; inet_ntoa_r(cli.sin_addr, ip, sizeof(ip));
         ESP_LOGI(TAG, "client %s:%d connected", ip, ntohs(cli.sin_port));
         stream_one_client(sock);
-        ESP_LOGI(TAG, "client disconnected");
+        ESP_LOGI(TAG, "client disconnected (Port 2000)");
         shutdown(sock, SHUT_RDWR); close(sock);
     }
 }
@@ -231,6 +241,7 @@ static void reverse_audio(void *arg)
     ESP_LOGI(TAG, "MP3 mem-play server listening on 0.0.0.0:%d", REVERSE_AUDIO_PORT);
 
     // 接收缓冲（小块）
+    dump_spiram_stat(TAG);
     uint8_t *chunk = (uint8_t*)heap_caps_malloc(RECV_CHUNK, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
     if (!chunk) { ESP_LOGE(TAG, "recv chunk alloc failed"); close(listen_sock); vTaskDelete(NULL); return; }
 
@@ -244,6 +255,7 @@ static void reverse_audio(void *arg)
         ESP_LOGI(TAG, "Client %s:%d connected (A-only: in-mem MP3)", ip, ntohs(cli.sin_port));
 
         // 大缓冲：整段 MP3 收到内存
+        dump_spiram_stat(TAG);
         uint8_t *mem = (uint8_t*)heap_caps_malloc(MAX_INMEM_BYTES, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
         if (!mem) {
             ESP_LOGE(TAG, "big buffer alloc failed (need PSRAM). Lower MAX_INMEM_BYTES or enable PSRAM.");
@@ -279,7 +291,8 @@ static void reverse_audio(void *arg)
 
         shutdown(sock, SHUT_RDWR);
         close(sock);
-
+		ESP_LOGI(TAG, "CTRL client disconnected (Port 3000)");
+		
         if (!ok || filled == 0) {
             ESP_LOGW(TAG, "transfer aborted/empty (total=%u)", (unsigned)filled);
             free(mem);
@@ -288,7 +301,6 @@ static void reverse_audio(void *arg)
 
         ESP_LOGI(TAG, "Transfer OK: %u bytes. Start playback (in-mem).", (unsigned)filled);
 
-        //int pr = audio_player_play_from_flash(&s_player, mem, mem + filled);
 		int pr = audio_manager_play_from_flash(mem, mem + filled);
         
         if (pr == 0) {
@@ -375,7 +387,10 @@ static bool parse_six_chars_to_lr(const uint8_t six[6], uint16_t *L, uint16_t *R
     }
     int l = (six[0]-'0')*100 + (six[1]-'0')*10 + (six[2]-'0');
     int r = (six[3]-'0')*100 + (six[4]-'0')*10 + (six[5]-'0');
-    if (l < 0 || l > 100 || r < 0 || r > 100) return false;
+    if (l < 0)   l = 0;
+    if (l > 999) l = 999;
+    if (r < 0)   r = 0;
+    if (r > 999) r = 999;
     *L = (uint16_t)l;
     *R = (uint16_t)r;
     return true;
@@ -386,6 +401,11 @@ static void vibration_feedback(void *arg)
 	
 	#if ENABLE_HAPTIC_PWM
 	 haptic_pwm_init();
+	 
+	ledc_set_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_L, 0);
+    ledc_update_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_L);
+    ledc_set_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_R, 0);
+    ledc_update_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_R);
 	#endif
 	
     int listen_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
@@ -430,8 +450,8 @@ static void vibration_feedback(void *arg)
         have = 0;
 
         // 可选：设置接收超时
-        struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        //struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
+        //setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
         bool ok = true;
         while (ok) {
@@ -452,17 +472,15 @@ static void vibration_feedback(void *arg)
 				        // 1) 打印原始 0~100 scale 的值
 				        ESP_LOGI(TAG, "Speeds received: L=%u, R=%u", (unsigned)L, (unsigned)R);
 				
-				        // 2) clamp 到 0~100，避免异常输入
-				        if (L > 100) L = 100;
-				        if (R > 100) R = 100;
-				        
+		        
 						#if ENABLE_HAPTIC_PWM
 				        // 3) 放缩到 0~1023 (10-bit duty)
 				        //    简单线性映射: duty = round( L/100 * 1023 )
-				        uint32_t dutyL = (uint32_t)((L * 1023 + 50) / 100);  // +50 做四舍五入
-				        uint32_t dutyR = (uint32_t)((R * 1023 + 50) / 100);
+					    uint32_t dutyL = (uint32_t)((L * 1023U + 499U) / 999U);
+					    uint32_t dutyR = (uint32_t)((R * 1023U + 499U) / 999U);
 				
 				        // 4) 更新 PWM 输出
+				        
 				        ledc_set_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_L, dutyL);
 				        ledc_update_duty(HAPTIC_PWM_MODE, HAPTIC_PWM_CH_L);
 				
@@ -482,7 +500,7 @@ static void vibration_feedback(void *arg)
 
         shutdown(sock, SHUT_RDWR);
         close(sock);
-        ESP_LOGI(TAG, "CTRL client disconnected");
+        ESP_LOGI(TAG, "CTRL client disconnected (Port 4000)");
     }
 
     close(listen_sock);

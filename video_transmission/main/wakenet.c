@@ -170,12 +170,19 @@ static void send_recording_over_tcp(const uint8_t *data, size_t len)
 
     ESP_LOGI(TAG, "Recording server listening on 0.0.0.0:%d", RECORDING_PORT);
 
+    struct timeval tv = {
+        .tv_sec  = 10,   // 10 秒
+        .tv_usec = 0,
+    };
+    setsockopt(listen_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
     struct sockaddr_in cli;
     socklen_t slen = sizeof(cli);
     int sock = accept(listen_sock, (struct sockaddr *)&cli, &slen);
     if (sock < 0) {
-        ESP_LOGE(TAG, "recording accept() failed");
+        ESP_LOGI(TAG, "No client connected to port 1000 within 10s");
         close(listen_sock);
+		s_record_len = 0;
         return;
     }
 
@@ -212,7 +219,7 @@ static void send_recording_over_tcp(const uint8_t *data, size_t len)
     close(sock);
     close(listen_sock);
 
-    ESP_LOGI(TAG, "Recording TCP server closed");
+    ESP_LOGI(TAG, "CTRL client disconnected (Port 1000)");
 }
 
 /* -------------------- 10s Recording Task -------------------- */

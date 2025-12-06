@@ -10,21 +10,21 @@
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
+			<item value="parse_six_chars_to_lr"/>
+			<item value="vibration"/>
+			<item value="haptic"/>
+			<item value="heap"/>
+			<item value="MAX_INMEM_BYTES"/>
+			<item value="reverse"/>
+			<item value="play_from"/>
+			<item value="2000"/>
+			<item value="send_over"/>
+			<item value="disconnect"/>
 			<item value="cb"/>
+			<item value="SO_RCVTIMEO"/>
+			<item value="ENABLE_HAPTIC_PWM"/>
 			<item value="unlink"/>
 			<item value="s_recorder"/>
-			<item value="audio_recorder_data_read"/>
-			<item value="rec_engine_cb"/>
-			<item value="audio_recor"/>
-			<item value="Failed to cre"/>
-			<item value="wakenet_min"/>
-			<item value="r &lt; 0"/>
-			<item value="s_current_volume"/>
-			<item value="RECV_CHUNK"/>
-			<item value="haptic_pwm_init"/>
-			<item value="HAPTIC_PWM_GPIO_L"/>
-			<item value="if (r"/>
-			<item value="audio_player"/>
 		</list>
 		<list key="replacehistory">
 			<item value="AUDIO_HAL_CODEC_MODE_BOTH"/>
