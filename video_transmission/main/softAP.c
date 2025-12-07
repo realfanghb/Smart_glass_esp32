@@ -26,8 +26,6 @@
 #include "audio_event_iface.h"
 #include "board.h"
 #include "driver/ledc.h"
-#include "esp_heap_caps.h"
-
 
 #include "softAP.h"
 #include "audio_play.h"
@@ -41,7 +39,7 @@
 #define VIDEO_PORT 2000  // Video 传输端口
 #define REVERSE_AUDIO_PORT      3000   // MP3 接收端口
 
-#define MAX_INMEM_BYTES (1 * 512* 1024)   // 512KB
+#define MAX_INMEM_BYTES (1 * 1024* 1024)   // 1MB
 #define RECV_CHUNK (4 * 1024)
 
 #define CONTROL_PORT 4000   // Vibration feedback 接收端口
@@ -70,7 +68,18 @@ static TaskHandle_t s_mp3_task = NULL;
 static TaskHandle_t s_vibration_task = NULL;
 static TaskHandle_t s_key_task = NULL;
 
+
+
 static bool s_haptic_pwm_inited = false;
+
+
+void dump_internal_mem(const char *tag)
+{
+    size_t free_int    = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    size_t largest_int = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    ESP_LOGI(tag, "INT free=%u, largest=%u",
+             (unsigned)free_int, (unsigned)largest_int);
+}
 
 void dump_spiram_stat(const char *tag)
 {
@@ -193,7 +202,8 @@ void softap_video_start(uint16_t port)
         ESP_LOGI(TAG, "tcp stream task already running on port %d", VIDEO_PORT);
         return;
     }
-    xTaskCreate(video_transmitting, "video_transmitting", 8192, NULL, 5, &s_video_task);
+    dump_internal_mem(TAG);
+    xTaskCreate(video_transmitting, "video_transmitting", 5120, NULL, 5, &s_video_task);
 }
 
 
@@ -243,6 +253,7 @@ static void reverse_audio(void *arg)
     // 接收缓冲（小块）
     dump_spiram_stat(TAG);
     uint8_t *chunk = (uint8_t*)heap_caps_malloc(RECV_CHUNK, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
+    //uint8_t *chunk = s_mp3_recv_chunk;
     if (!chunk) { ESP_LOGE(TAG, "recv chunk alloc failed"); close(listen_sock); vTaskDelete(NULL); return; }
 
     for (;;)
@@ -320,12 +331,8 @@ static void reverse_audio(void *arg)
 
 void softap_reverse_audio_start(uint16_t port)
 {
-    (void)port; // 端口仍用 AUDIO_PORT 宏，保持兼容
-    if (s_mp3_task) {
-        ESP_LOGI(TAG, "MP3 server already running on port %d", REVERSE_AUDIO_PORT);
-        return;
-    }
-    xTaskCreate(reverse_audio, "mp3_server_task", 4096, NULL, 5, &s_mp3_task);
+    dump_internal_mem(TAG);
+    xTaskCreate(reverse_audio, "mp3_server_task", 3072, NULL, 5, &s_mp3_task);
 }
 
 // ==================== PWM_Initialization ====================
@@ -514,7 +521,8 @@ void softap_feedback_start(uint16_t port_unused)
         ESP_LOGI(TAG, "Control server already running on %d", CONTROL_PORT);
         return;
     }
-    xTaskCreate(vibration_feedback, "vibration_feedback", 4096, NULL, 5, &s_vibration_task);
+    dump_internal_mem(TAG);
+    xTaskCreate(vibration_feedback, "vibration_feedback", 3072, NULL, 5, &s_vibration_task);
 }
 
 // ==================== Volume_Adjustment ====================
@@ -575,5 +583,6 @@ static void key_volume_task(void *arg)
 void softap_keys_start(void)
 {
     if (s_key_task) return;
-    xTaskCreate(key_volume_task, "key_volume_task", 4096, NULL, 5, &s_key_task);
+    dump_internal_mem(TAG);
+    xTaskCreate(key_volume_task, "key_volume_task", 3072, NULL, 5, &s_key_task);
 }

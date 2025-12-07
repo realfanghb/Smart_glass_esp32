@@ -23,7 +23,7 @@
 #include "lwip/netdb.h"
 
 #include "wakenet.h"
-
+#include "softAP.h"
 
 #define SR_RATE_HZ                 16000
 
@@ -316,6 +316,7 @@ static esp_err_t rec_engine_cb(audio_rec_evt_t *event, void *user_data)
         // Start 10s recording once per wake event
         if (!s_is_recording) {
             s_is_recording = true;
+    		dump_internal_mem(TAG);
             BaseType_t ret = xTaskCreate(
                 record_10s_task,
                 "rec10s",

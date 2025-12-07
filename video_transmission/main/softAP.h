@@ -21,6 +21,8 @@ esp_err_t softap_audio_player_init(void);
 void softap_feedback_start(uint16_t port);
 
 void softap_keys_start(void);
+
+void dump_internal_mem(const char *tag);
 #ifdef __cplusplus
 }
 #endif

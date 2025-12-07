@@ -10,21 +10,21 @@
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
+			<item value="reverse"/>
+			<item value="SPIRAM"/>
+			<item value="xTaskCreate"/>
+			<item value="xTaskc"/>
+			<item value="xTaskCr"/>
+			<item value="xTask"/>
 			<item value="parse_six_chars_to_lr"/>
 			<item value="vibration"/>
 			<item value="haptic"/>
 			<item value="heap"/>
 			<item value="MAX_INMEM_BYTES"/>
-			<item value="reverse"/>
 			<item value="play_from"/>
 			<item value="2000"/>
 			<item value="send_over"/>
 			<item value="disconnect"/>
-			<item value="cb"/>
-			<item value="SO_RCVTIMEO"/>
-			<item value="ENABLE_HAPTIC_PWM"/>
-			<item value="unlink"/>
-			<item value="s_recorder"/>
 		</list>
 		<list key="replacehistory">
 			<item value="AUDIO_HAL_CODEC_MODE_BOTH"/>
