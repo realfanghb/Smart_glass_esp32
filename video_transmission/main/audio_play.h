@@ -1,3 +1,7 @@
+// audio_play.h
+#ifndef AUDIO_PLAY_H
+#define AUDIO_PLAY_H
+
 #pragma once
 #include <stdint.h>
 #include "audio_pipeline.h"
@@ -17,16 +21,18 @@ typedef struct {
 extern "C" {
 #endif
 
-// 初始化板卡与流水线（ES8311 进入解码模式）
+// Initialize audio player pipeline (MP3 decoder -> I2S output)
 int audio_player_init(audio_player_t *player);
 
-// A) 从“内嵌 MP3 二进制”播放（start/end 来自链接符号）
+// Play MP3 audio from memory buffer
 int audio_player_play_from_flash(audio_player_t *player,
                                  const uint8_t *start, const uint8_t *end);
 
-// 释放资源
+// Cleanup and deallocate audio player resources
 void audio_player_deinit(audio_player_t *player);
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif // AUDIO_PLAY_H

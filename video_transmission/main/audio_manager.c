@@ -1,6 +1,9 @@
+// audio_manager.c
+// Unified audio subsystem controller with thread-safe mutex protection
+// Coordinates WakeNet speech recognition and MP3 audio playback
+
 #include "audio_manager.h"
 #include "audio_play.h"
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
@@ -24,8 +27,6 @@ static bool s_player_inited = false;
 
 static int s_current_volume = 100;
 
-// ---------- 内部锁 ----------
-
 static void audio_lock(void)
 {
     if (s_audio_mutex == NULL) {
@@ -45,8 +46,7 @@ static void audio_unlock(void)
     }
 }
 
-// ---------- 初始化：只在这里动 codec 一次 ----------
-
+// One-time initialization: create mutex and initialize codec to BOTH+START
 void audio_manager_init(void)
 {
     audio_lock();
@@ -69,8 +69,7 @@ void audio_manager_init(void)
     audio_unlock();
 }
 
-// ---------- WakeNet 控制（只控 pipeline，不再重新 init codec） ----------
-
+// WakeNet management
 esp_err_t audio_manager_start_wakenet(void)
 {
     audio_lock();
@@ -138,7 +137,7 @@ esp_err_t audio_manager_set_volume(int vol)
     audio_lock();
     esp_err_t ret = audio_hal_set_volume(s_board->audio_hal, vol);
     if (ret == ESP_OK) {
-        s_current_volume = vol;   // 记住当前音量
+        s_current_volume = vol;
     }    
 	audio_unlock();
 
@@ -156,7 +155,6 @@ esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end
 
     audio_lock();
 
-    // 1) If WakeNet running, stop it FIRST so it releases I2S
     bool resume_wakenet = s_wakenet_running;
 
     if (s_wakenet_running) {
@@ -164,9 +162,6 @@ esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end
         wakenet_stop();
         s_wakenet_running = false;
     }
-
-    // 2) Always recreate audio_player so we get a fresh I2S handle
-
 
     if (!s_player_inited) {
         ESP_LOGI(TAG, "Init audio_player (first time)");
@@ -181,7 +176,6 @@ esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end
     s_playback_running = true;
     audio_unlock();
 
-    // 3) Do actual playback (this blocks until done)
     audio_hal_set_volume(s_board->audio_hal, s_current_volume);
     int r = audio_player_play_from_flash(&s_player, start, end);
 
@@ -194,7 +188,6 @@ esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end
         s_player_inited = false;
     }
 
-    // 4) Resume WakeNet if needed
     if (resume_wakenet) {
         ESP_LOGI(TAG, "Restarting WakeNet after playback");
         esp_err_t wr = wakenet_start();

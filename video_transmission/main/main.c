@@ -1,6 +1,6 @@
-// ============================================================================
-// File: main.c (最小示例) —— 你的工程里只需调用 start() 就行
-// ============================================================================
+// main.c
+// Initializes camera, WiFi AP, WakeNet audio engine, and network services
+
 #include "nvs_flash.h"
 #include "esp_err.h"
 #include "esp_log.h"
