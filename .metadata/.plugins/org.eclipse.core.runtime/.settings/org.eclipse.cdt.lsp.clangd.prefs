@@ -1,4 +1,0 @@
-additional_options=--compile-commands-dir\=D\:\\Espressif_IDE_Workspace\\video_transmission\\build
-clangd_path=C\:\\Users\\Lenovo\\.espressif\\tools\\xtensa-clang\\14.0.0-38679f0333\\xtensa-esp32-elf-clang\\bin\\clangd.exe
-eclipse.preferences.version=1
-query_driver=C\:\\Users\\Lenovo\\.espressif\\tools\\xtensa-esp32s3-elf\\esp-2022r1-11.2.0\\xtensa-esp32s3-elf\\bin\\xtensa-esp32s3-elf-gcc.exe

@@ -1,3 +1,0 @@
-CompileFlags:
-  CompilationDatabase: D:\Espressif_IDE_Workspace\video_transmission\build
-  Remove: [-m*, -f*]
