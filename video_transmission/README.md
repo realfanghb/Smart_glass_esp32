@@ -1,6 +1,11 @@
 # INSIGHT: ESP32-S3-based Multimodal SoftAP PCB
 
-Custom PCB board based on **ESP32-S3-WROOM-1-N8R8** serves as the real-time multimodal edge I/O hub for **INSIGHT**, working with a **Jetson Nano** to enable **real-time navigation**, **on-device scene understanding**, and **voice-based interaction with AI**. The ESP32-S3 establishes a bidirectional link to Jetson over **Local Wi-Fi SoftAP**: uplink (**video + wake-word audio**) / downlink (**reverse-audio + haptic feedback**).
+**Maintainer:** Haobo Fang  
+**Contact:** fanghb@umich.edu
+
+Custom PCB board based on **ESP32-S3-WROOM-1-N8R8** serves as the real-time multimodal edge I/O hub for **INSIGHT**, working with a **Jetson Nano** to enable **real-time navigation**, **on-device scene understanding**, and **voice-based interaction with AI**. 
+The ESP32-S3 establishes a bidirectional link to Jetson over **Local Wi-Fi SoftAP**: uplink (**video + wake-word audio**) / downlink (**reverse-audio + haptic feedback**).
+For technical details, please scroll down. For demos, please visit [my personal website](https://realfanghb.github.io/).
 
 ## Key Features
 - **FreeRTOS-based concurrency**: dedicated tasks for camera streaming, WakeNet, audio playback, haptic PWM, and key handling (real-time responsive I/O)
