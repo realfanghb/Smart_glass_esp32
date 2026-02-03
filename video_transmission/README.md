@@ -5,7 +5,7 @@
 
 Custom PCB board based on **ESP32-S3-WROOM-1-N8R8** serves as the real-time multimodal edge I/O hub for **INSIGHT**, working with a **Jetson Nano** to enable **real-time navigation**, **on-device scene understanding**, and **voice-based interaction with AI**. 
 The ESP32-S3 establishes a bidirectional link to Jetson over **Local Wi-Fi SoftAP**: uplink (**video + wake-word audio**) / downlink (**reverse-audio + haptic feedback**).
-For technical details, please scroll down. For demos, please visit [my personal website](https://realfanghb.github.io/).
+For technical details, please scroll down. For demos, please visit [my personal website](https://realfanghb.github.io/portfolio/smart-glass/).
 
 ## Key Features
 - **FreeRTOS-based concurrency**: dedicated tasks for camera streaming, WakeNet, audio playback, haptic PWM, and key handling (real-time responsive I/O)
@@ -21,9 +21,11 @@ For technical details, please scroll down. For demos, please visit [my personal 
 ## System Block Diagram
 ![System Block Diagram](docs/arch.png)
 
-## PCB Layout Diagram
+## PCB Layout
 ![PCB Layout Diagram](docs/PCB.png)
 
+## INSIGHT Demo Video
+https://github.com/realfanghb/Smart_glass_esp32/issues/2#issuecomment-3838344815
 ---
 
 ## 1. What it does
@@ -115,3 +117,13 @@ Open the project → select target ESP32-S3 → build → flash → monitor.
 idf.py set-target esp32s3
 idf.py menuconfig
 idf.py build flash monitor
+
+---
+
+## 6. Acknowledgements / References
+
+- **PCB layout reference:** The component placement of our custom PCB were inspired by the reference design/layout practices of Espressif’s **ESP32-S3-Korvo-2 Audio Development Board**.
+- **Firmware reference:** Portions of the firmware structure and peripheral bring-up were adapted from official **ESP-IDF** and **ESP-ADF** example projects.
+
+This project is an independent work and is **not affiliated with, endorsed by, or sponsored by Espressif Systems**.
+

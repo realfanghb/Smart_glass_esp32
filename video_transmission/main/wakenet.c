@@ -1,4 +1,4 @@
-// wakenet.c — WakeNet + 10s recording + TCP send (no changes to softAP.c)
+// wakenet.c — WakeNet + 5s recording + TCP send
 // Pipeline: I2S (16 kHz, 16-bit, ONLY_LEFT) -> RAW
 // Recorder SR (AFE + WakeNet) pulls from RAW and logs on wakeword.
 
@@ -31,12 +31,11 @@
 #define CODEC_ADC_I2S_PORT         0
 #endif
 
-// ---- 10s recording config ----
+// ---- 5s recording ----
 #define RECORD_SECONDS             5
 #define BYTES_PER_SECOND           (SR_RATE_HZ * 2)   // 16-bit mono = 2 bytes/sample
 #define RECORD_BYTES               (RECORD_SECONDS * BYTES_PER_SECOND)
 
-// TCP port for sending recording (ESP acts as server)
 #define RECORDING_PORT             1000
 
 #define SECONDS_BEFORE_START    3000
@@ -50,7 +49,7 @@ static audio_element_handle_t    s_i2s_reader = NULL;
 static audio_element_handle_t    s_raw        = NULL;
 static audio_rec_handle_t        s_recorder   = NULL;
 
-// Buffer + state for 10s recording
+// Buffer + state for 5s recording
 static uint8_t *s_record_buf   = NULL;
 static size_t   s_record_len   = 0;
 static bool     s_is_recording = false;
@@ -171,7 +170,7 @@ static void send_recording_over_tcp(const uint8_t *data, size_t len)
     ESP_LOGI(TAG, "Recording server listening on 0.0.0.0:%d", RECORDING_PORT);
 
     struct timeval tv = {
-        .tv_sec  = 10,   // 10 秒
+        .tv_sec  = 10,   // 10s
         .tv_usec = 0,
     };
     setsockopt(listen_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
@@ -222,7 +221,7 @@ static void send_recording_over_tcp(const uint8_t *data, size_t len)
     ESP_LOGI(TAG, "CTRL client disconnected (Port 1000)");
 }
 
-/* -------------------- 10s Recording Task -------------------- */
+/* -------------------- 5s Recording Task -------------------- */
 static void record_10s_task(void *arg)
 {
     (void)arg;

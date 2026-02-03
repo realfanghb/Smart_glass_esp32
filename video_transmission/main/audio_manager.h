@@ -1,152 +1,103 @@
 #ifndef AUDIO_MANAGER_H
 #define AUDIO_MANAGER_H
 
+#include <stdint.h>
 #include "esp_err.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
 /**
  * @file audio_manager.h
+ * @brief System-level audio ownership and arbitration.
  *
- * @brief High-level audio manager API for the ESP32 audio codec + WakeNet
- *        keyword spotting pipeline + flash-based playback.
- *
- * This module wraps:
- *   - Board / codec bring-up via audio_board_init() and audio_hal_*()
- *   - WakeNet pipeline start / stop (microphone -> keyword spotting)
- *   - Playback of pre-encoded audio stored in flash via audio_player_*
- *
- * Internally, the module:
- *   - Uses a FreeRTOS mutex to serialize access to the audio hardware
- *   - Ensures the codec is initialized exactly once
- *   - Avoids I2S conflicts by never running WakeNet and playback at
- *     the same time (playback temporarily stops WakeNet, then restores it)
- *
- * Thread-safety:
- *   All functions are safe to call from multiple tasks; the module
- *   serializes access with an internal mutex.
+ * Owns the audio board/codec lifecycle and provides a single entry point for:
+ * - Codec bring-up and volume control
+ * - Wake-word pipeline start/stop
+ * - Flash-based playback with conflict-free handover (WakeNet <-> Playback)
  */
 
 /**
- * @brief Initialize the audio board and codec once.
+ * @brief Initialize audio hardware once (board + codec).
  *
- * Responsibilities:
- *   - Calls audio_board_init() to obtain the audio_board_handle_t
- *   - Starts the codec in AUDIO_HAL_CODEC_MODE_BOTH
- *   - Applies the last known volume (default 100%)
+ * Initializes the audio board handle and starts the codec in full-duplex mode.
+ * Safe to call multiple times; subsequent calls are no-ops after first success.
  *
- * Usage:
- *   - Must be called before any other audio_manager_* API.
- *   - Safe to call multiple times; after the first successful call,
- *     subsequent calls are effectively no-ops.
+ * Notes:
+ * - This function does not start WakeNet or playback pipelines.
+ * - Volume is restored to the last cached value (default 100%).
  */
 void audio_manager_init(void);
-
 
 /**
  * @brief Start the WakeNet keyword-spotting pipeline.
  *
- * This function brings up the WakeNet audio pipeline that listens
- * to the microphone and runs keyword spotting. It does NOT re-init
- * the codec; it only starts the pipeline.
- *
- * Constraints:
- *   - If playback is currently running, this call fails with
- *     ESP_ERR_INVALID_STATE to prevent I2S conflicts.
- *   - If WakeNet is already running, this call succeeds but does
- *     nothing (idempotent).
+ * Starts the microphone -> WakeNet processing pipeline.
+ * Will refuse to start if playback is active (I2S conflict prevention).
  *
  * @return
- *   - ESP_OK on success or if already running
- *   - ESP_ERR_INVALID_STATE if playback is running
- *   - Other error codes propagated from wakenet_start()
+ * - ESP_OK: started or already running
+ * - ESP_ERR_INVALID_STATE: playback is running
+ * - Other esp_err_t: propagated from 'wakenet_start' function in the WakeNet start routine
  */
 esp_err_t audio_manager_start_wakenet(void);
+
 /**
  * @brief Stop the WakeNet keyword-spotting pipeline.
  *
- * This function stops the WakeNet pipeline (if it is running).
- * It does not touch the codec initialization state.
+ * Stops WakeNet if running. No effect if already stopped.
  *
- * Behavior:
- *   - If WakeNet is not running, this call is a no-op and returns ESP_OK.
- *
- * @return ESP_OK always (currently no error path is exposed).
+ * @return ESP_OK.
  */
 esp_err_t audio_manager_stop_wakenet(void);
 
 /**
- * @brief Get the current codec volume (0–100%).
+ * @brief Get current codec volume (0–100).
  *
- * This is a thin wrapper over audio_hal_get_volume() using the
- * internally stored audio_board_handle_t.
- *
- * @param[out] out_vol
- *     Pointer to an int that will receive the current volume (0–100).
- *
+ * @param[out] out_vol Receives volume in percent.
  * @return
- *   - ESP_OK on success and *out_vol is filled
- *   - ESP_ERR_INVALID_ARG if out_vol is NULL
- *   - ESP_ERR_INVALID_STATE if the audio board / codec has not
- *     been initialized (audio_manager_init() not yet called)
- *   - Other error codes propagated from audio_hal_get_volume()
+ * - ESP_OK on success
+ * - ESP_ERR_INVALID_ARG if out_vol is NULL
+ * - ESP_ERR_INVALID_STATE if audio_manager_init() has not completed
+ * - Other esp_err_t from codec driver
  */
 esp_err_t audio_manager_get_volume(int *out_vol);
+
 /**
- * @brief Set the codec volume (0–100%).
+ * @brief Set codec volume (0–100).
  *
- * This function clamps the input to [0, 100], calls
- * audio_hal_set_volume(), and updates the internal cached volume.
+ * Input is clamped to [0, 100]. Updates both codec and internal cache so
+ * future operations remain consistent.
  *
- * Constraints:
- *   - Requires that audio_manager_init() has successfully completed.
- *
- * @param[in] vol
- *     Desired volume in percent (values outside [0,100] are clamped).
- *
+ * @param[in] vol Volume percent.
  * @return
- *   - ESP_OK on success
- *   - ESP_ERR_INVALID_STATE if the audio board / codec is not ready
- *   - Other error codes propagated from audio_hal_set_volume()
+ * - ESP_OK on success
+ * - ESP_ERR_INVALID_STATE if audio_manager_init() has not completed
+ * - Other esp_err_t from codec driver
  */
 esp_err_t audio_manager_set_volume(int vol);
 
 /**
- * @brief Play an MP3 (or other supported format) from flash.
+ * @brief Play an audio payload from flash (blocking).
  *
- * The audio data is assumed to be stored contiguously in flash,
- * described by the [start, end) byte range.
- *
- * High-level behavior:
- *   1. Validates the input range (start < end, non-NULL).
- *   2. If WakeNet is running, stops it first so it releases I2S.
- *   3. Lazily initializes an internal audio_player_t instance
- *      (audio_player_init) if not already initialized.
- *   4. Sets the codec volume to the internally cached value.
- *   5. Performs blocking playback via audio_player_play_from_flash().
- *   6. Deinitializes the audio_player_t instance after playback.
- *   7. If WakeNet was running before playback, restarts it.
+ * Plays a contiguous byte range [start, end) (typically embedded MP3 data).
+ * If WakeNet is running, it will be stopped before playback and restarted after.
  *
  * Concurrency:
- *   - This function holds the audio manager mutex while manipulating
- *     shared state (flags, player handle) but releases it during the
- *     blocking playback call so other tasks can still query volume, etc.
+ * - Internal state transitions are mutex-protected.
+ * - The function may release the lock during the blocking playback to reduce
+ *   system-wide contention, while still preventing illegal start/stop sequences.
  *
- * @param[in] start
- *     Pointer to the first byte of the audio data in flash.
- * @param[in] end
- *     Pointer one past the last byte of the audio data in flash.
- *
+ * @param[in] start Pointer to first byte (inclusive).
+ * @param[in] end   Pointer to end byte (exclusive).
  * @return
- *   - ESP_OK on successful playback
- *   - ESP_ERR_INVALID_ARG if start/end are invalid (NULL or start >= end)
- *   - ESP_FAIL if audio_player_init() fails or if
- *     audio_player_play_from_flash() reports a non-zero error code
+ * - ESP_OK on successful playback completion
+ * - ESP_ERR_INVALID_ARG if range is invalid
+ * - ESP_FAIL on playback/pipeline errors
  */
 esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end);
+
 #ifdef __cplusplus
 }
 #endif

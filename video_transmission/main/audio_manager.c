@@ -24,7 +24,7 @@ static bool s_player_inited = false;
 
 static int s_current_volume = 100;
 
-// ---------- 内部锁 ----------
+// ---------- Internal Lock and Unlock ----------
 
 static void audio_lock(void)
 {
@@ -45,7 +45,7 @@ static void audio_unlock(void)
     }
 }
 
-// ---------- 初始化：只在这里动 codec 一次 ----------
+// ---------- Initialize codec once ----------
 
 void audio_manager_init(void)
 {
@@ -68,8 +68,6 @@ void audio_manager_init(void)
 
     audio_unlock();
 }
-
-// ---------- WakeNet 控制（只控 pipeline，不再重新 init codec） ----------
 
 esp_err_t audio_manager_start_wakenet(void)
 {
@@ -138,7 +136,7 @@ esp_err_t audio_manager_set_volume(int vol)
     audio_lock();
     esp_err_t ret = audio_hal_set_volume(s_board->audio_hal, vol);
     if (ret == ESP_OK) {
-        s_current_volume = vol;   // 记住当前音量
+        s_current_volume = vol;
     }    
 	audio_unlock();
 
@@ -166,8 +164,6 @@ esp_err_t audio_manager_play_from_flash(const uint8_t *start, const uint8_t *end
     }
 
     // 2) Always recreate audio_player so we get a fresh I2S handle
-
-
     if (!s_player_inited) {
         ESP_LOGI(TAG, "Init audio_player (first time)");
         if (audio_player_init(&s_player) != 0) {

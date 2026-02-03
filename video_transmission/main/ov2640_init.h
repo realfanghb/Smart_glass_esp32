@@ -7,7 +7,16 @@
 extern "C" {
 #endif
 
-// 供 main.c 调用：初始化 OV2640 为 800x600 JPEG，返回 ESP_OK 表示成功
+/**
+ * @file ov2640_init.h
+ * @brief OV2640 camera initialization helper (DVP -> esp_camera).
+ */
+
+/**
+ * @brief Initialize OV2640 with default settings (JPEG format, QVGA size).
+ *
+ * @return ESP_OK on success; otherwise an error code from esp_camera_init().
+ */
 esp_err_t camera_init_ov2640(void);
 
 #ifdef __cplusplus

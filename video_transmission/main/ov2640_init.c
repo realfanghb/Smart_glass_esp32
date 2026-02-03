@@ -6,7 +6,7 @@
 
 static const char *TAG = "ov2640_init";
 
-// ====== KORVO-2 DVP + OV2640 引脚映射（按你现在直连的那版） ======
+// ====== Custom PCB board DVP + OV2640 I/O pins map ======
 #define PWDN_GPIO_NUM     -1
 #define RESET_GPIO_NUM    -1
 #define XCLK_GPIO_NUM     40
@@ -14,7 +14,7 @@ static const char *TAG = "ov2640_init";
 #define SIOD_GPIO_NUM     17  // SCCB SDA
 #define SIOC_GPIO_NUM     18  // SCCB SCL
 
-// DVP数据线（OV2640 的 D2..D9 -> esp32-camera 的 d0..d7）
+// DVP camera interface
 #define Y2_GPIO_NUM       13  // D2 -> d0
 #define Y3_GPIO_NUM       47  // D3 -> d1
 #define Y4_GPIO_NUM       14  // D4 -> d2
@@ -50,13 +50,13 @@ esp_err_t camera_init_ov2640(void)
         .pin_href  = HREF_GPIO_NUM,
         .pin_pclk  = PCLK_GPIO_NUM,
 
-        .xclk_freq_hz = 10000000,              // 20MHz
+        .xclk_freq_hz = 10000000,              // 10MHz
         .ledc_timer = LEDC_TIMER_0,
         .ledc_channel = LEDC_CHANNEL_0,
 
-        .pixel_format = PIXFORMAT_JPEG,        // 以 JPEG 发送
-        .frame_size   = FRAMESIZE_QVGA,
-        .jpeg_quality = 12,                    // 质量/码率折中
+        .pixel_format = PIXFORMAT_JPEG,        // In JPEG format
+        .frame_size   = FRAMESIZE_QVGA,        // In QVGA size
+        .jpeg_quality = 12,
         .fb_count     = 2,
         .fb_location  = CAMERA_FB_IN_PSRAM,
         .grab_mode    = CAMERA_GRAB_LATEST,
@@ -71,7 +71,6 @@ esp_err_t camera_init_ov2640(void)
     sensor_t *s = esp_camera_sensor_get();
     if (s) {
         s->set_framesize(s, FRAMESIZE_QVGA);
-        // 可根据需要：
         // s->set_vflip(s, 1);
         // s->set_hmirror(s, 1);
         // s->set_brightness(s, 1);

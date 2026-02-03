@@ -10,6 +10,10 @@
 		<item key="incremental" value="false"/>
 		<item key="isRegEx" value="false"/>
 		<list key="findhistory">
+			<item value="manager"/>
+			<item value="pump_music_info_and_update_clk"/>
+			<item value="VAD"/>
+			<item value="vibrat"/>
 			<item value="reverse"/>
 			<item value="SPIRAM"/>
 			<item value="xTaskCreate"/>
@@ -21,10 +25,6 @@
 			<item value="haptic"/>
 			<item value="heap"/>
 			<item value="MAX_INMEM_BYTES"/>
-			<item value="play_from"/>
-			<item value="2000"/>
-			<item value="send_over"/>
-			<item value="disconnect"/>
 		</list>
 		<list key="replacehistory">
 			<item value="AUDIO_HAL_CODEC_MODE_BOTH"/>
