@@ -120,7 +120,6 @@ idf.py build flash monitor
 ---
 
 ## 6. Acknowledgements / References
-```bash
 
 - **PCB layout reference:** The component placement of our custom PCB were inspired by the reference design/layout practices of Espressif’s **ESP32-S3-Korvo-2 Audio Development Board**.
 - **Firmware reference:** Portions of the firmware structure and peripheral bring-up were adapted from official **ESP-IDF** and **ESP-ADF** example projects.
