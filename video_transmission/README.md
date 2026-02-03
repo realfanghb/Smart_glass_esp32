@@ -113,7 +113,6 @@ Current config notes:
 Open the project → select target ESP32-S3 → build → flash → monitor.
 
 ### Using CLI (ESP-IDF)
-```bash
 idf.py set-target esp32s3
 idf.py menuconfig
 idf.py build flash monitor
@@ -121,6 +120,7 @@ idf.py build flash monitor
 ---
 
 ## 6. Acknowledgements / References
+```bash
 
 - **PCB layout reference:** The component placement of our custom PCB were inspired by the reference design/layout practices of Espressif’s **ESP32-S3-Korvo-2 Audio Development Board**.
 - **Firmware reference:** Portions of the firmware structure and peripheral bring-up were adapted from official **ESP-IDF** and **ESP-ADF** example projects.
